@@ -1,5 +1,5 @@
 [comment encoding = UTF-8 /]
-[module generateMain('platform:/resource/org.eclipse.sme.frsl/model/FRSL.ecore', 'http://www.eclipse.org/ocl/2015/Pivot')]
+[module generateMain('http://www.xtext.org/sme/2020/FRSL', 'http://www.eclipse.org/ocl/2015/Pivot')]
 
 [comment]---------------------------------------------------------[/comment] 
 [comment]-- 1. Generate USE model --------------------------------[/comment]
@@ -61,7 +61,6 @@ attributes
 	[p.name/]: [p.type.name/]([p.getCollectElemType().name/])
 [elseif (p.isPrimitive())]  
 	[p.name/]: [p.type.name/]
-	[comment]Chưa thế gen attribute có class khai báo, ví dụ CashPayment, CreditPayment, v.v... chỉ sinh được các kiểu nguyên thủy [/comment]
 [/if]
 [/for]
 end
@@ -213,7 +212,7 @@ context [usecase.name/]::match_[op.name/]()
 	ucClass: Class = frslModel.getUsecaseClass(usecaseName);
 }]	
 [let unchangedProps: Set(Property) = ucClass.ownedProperties->select(p: Property | step.getNewObjVarNames()->excludes( p.name) ) 
-	- objVars->select(type.isPrimitive() or type.isPrimitiveSet())->collect(type)->asSet()]
+	- objVars->select(type.oclAsType(Property).isPrimitive() or type.oclAsType(Property).isPrimitiveSet())->collect(type)->asSet()]
 [comment][let unchangedProps: Set(Property) = ucClass.ownedProperties->select(p: Property | step.getNewObjVarNames()->excludes( p.name)) - objVars->collect(type)->asSet()][/comment]
 [for(p: Property | unchangedProps)]
 [if ( i = 1) ]
@@ -224,11 +223,11 @@ post unChangedPart:
 [/if]
 [/for]
 [/let]
-[let domainObjVars: Sequence(ObjVar) = objVars->select( ( (not type.isPrimitive()) and (not type.oclIsKindOf(CollectionType)) ))]
+[let domainObjVars: Sequence(ObjVar) = objVars->select( ( (not type.oclAsType(Property).isPrimitive()) and (not type.oclIsKindOf(CollectionType)) ))]
 [for (class: Class | usecase.getDomClass()) before('\tand ') separator('\tand ')]
 [let excludedObjSet1: String = 
-	if(domainObjVars->select( type.type.name = class.name )->size() > 0) then
-		' - Set{' + domainObjVars->select(type.type.name = class.name)->collect(name)->sep(',')->toString() + '}'
+	if(domainObjVars->select( type.oclAsType(Property).type.name = class.name )->size() > 0) then
+		' - Set{' + domainObjVars->select(type.oclAsType(Property).type.name = class.name)->collect(name)->sep(',')->toString() + '}'
 	else
 		''
 	endif]
@@ -244,7 +243,7 @@ x.[property.name/]@pre=x.[property.name/][/for])
 [/let]
 [/for]
 [for(objVar: ObjVar | domainObjVars)]
-[let class: Class = frslModel.getDomClass()->select(name = objVar.type.type.name)->any(true)]
+[let class: Class = frslModel.getDomClass()->select(name = objVar.type.oclAsType(Property).type.name)->any(true)]
 [let allAttrs: Set(String) = class.getAllOneProps()->collect(name)->asSet()]
 [let changedAttrs: Set(String) = 
 	if(propNames->size() = 0) then
@@ -355,7 +354,7 @@ context [usecase.name/]::[op.name/]()
 
 [query public getChangedObjVar(step: ActStep): Sequence(ObjVar) =
 	step.postSnapshot.constraint->iterate(constr; ret1: Sequence(ObjVar) = Sequence{} |
-		if( constr.ownedSpecification._body.trim().startsWith('\'@changed')) then
+		if( constr.ownedSpecification._body.toString().trim().startsWith('\'@changed')) then
 			ret1->union(
 				constr.ownedSpecification._body.tokenize('\'')->at(3).tokenize(';')->iterate(st; ret2: Sequence(ObjVar)=Sequence{} | 
 					if(st.tokenize('/{}')->size() > 0) then
@@ -374,7 +373,7 @@ context [usecase.name/]::[op.name/]()
 
 [query public getChangedProps(step: ActStep): Sequence(Sequence(String)) =
 	step.postSnapshot.constraint->iterate(constr; ret1: Sequence(Sequence(String)) = Sequence{} |
-		if( constr.ownedSpecification._body.trim().startsWith('\'@changed')) then
+		if( constr.ownedSpecification._body.toString().trim().startsWith('\'@changed')) then
 			constr.ownedSpecification._body.tokenize('\'')->at(3).tokenize(';')->iterate(st; ret2: Sequence( Sequence(String) ) = Sequence{} | 
 				if(st.tokenize('/{}')->size() > 1) then
 					ret2->append( st.tokenize('/{}')->at(2).tokenize(',').trim() )
@@ -481,8 +480,8 @@ post nextStep:
 [comment]-- 4.2.2.1 Get OCL conditions for objVars of the presnapshot -------------------------[/comment]
 [comment]--------------------------------------------------------------------------------------[/comment]
 [query public genPreObjVarOCL(snapshot: SnapshotPattern): Set(String) = 
-	snapshot.object->iterate (objVar; ret: Set(String) = Set{} | 
-		if(( objVar.isMatched.toString() = true.toString() ) and (not objVar.type.type.oclIsKindOf(CollectionType)) ) then
+	snapshot.object->iterate (objVar:ObjVar; ret: Set(String) = Set{} | 
+		if(( objVar.isMatched.toString() = true.toString() ) and (not objVar.type.oclAsType(Property).type.oclIsKindOf(CollectionType)) ) then
 			ret->including('(not ' + objVar.name + '.oclIsUndefined())')
 		else
 			ret
@@ -495,15 +494,16 @@ post nextStep:
 [comment]--------------------------------------------------------------------------------------[/comment]
 [query public genLinkOCL(snapshot: SnapshotPattern): Set(String) = 
 	snapshot.link->iterate(varLink; ret: Set(String) = Set{} |
-		if ( varLink.isNeg and varLink.assoc.name <> '_Tracks') then
-			if(varLink.assoc.ownedProperties->at(2).isMany) then
+		let assocCls: AssociationClass = varLink.assoc.oclAsType(AssociationClass) in
+		if ( varLink.isNeg and assocCls.name <> '_Tracks') then
+			if(assocCls.ownedProperties->at(2).isMany) then
 				ret->including( varLink.objVar->at(1).name + '.' + varLink.objVar->at(2).name + '->excludes(' + varLink.objVar->at(2).name + ')')  
 			else
 				ret->including( varLink.objVar->at(1).name + '.' + varLink.objVar->at(2).name + '.oclIsUndefined()' )
 			endif
 		else 
-			if(varLink.assoc.name <> '_Tracks') then
-				if(varLink.assoc.ownedProperties->at(2).isMany) then
+			if(assocCls.name <> '_Tracks') then
+				if(assocCls.ownedProperties->at(2).isMany) then
 					ret->including( varLink.objVar->at(1).name + '.' + varLink.objVar->at(2).name + '->includes(' + varLink.objVar->at(2).name + ')' ) 
 				else
 					ret->including( varLink.objVar->at(1).name + '.' +  varLink.objVar->at(2).name + ' = ' + varLink.objVar->at(2).name )
@@ -545,8 +545,9 @@ post nextStep:
 		->intersection(	step.preSnapshot.object->collect(name)->asSet() )
 		->iterate ( objVarName; ret: Set(String) = Set{} |
 			let objVar: ObjVar = step.postSnapshot.object->select(name = objVarName)->any(true) in
-			if ( (not objVar.type.isMany) and (objVar.type.type.oclIsKindOf(PrimitiveType).toString() = false.toString()) ) then
-				ret->including( objVar.type.type.name
+			let prop:Property = objVar.type.oclAsType(Property) in
+			if ( (not prop.isMany) and (prop.type.oclIsKindOf(PrimitiveType).toString() = false.toString()) ) then
+				ret->including( prop.type.name
 					+ '.allInstances()->includes(' + objVarName + ')')  
 			else
 				ret
@@ -556,9 +557,10 @@ post nextStep:
 		->removeAll( step.postSnapshot.object->collect(name) )
 		->iterate (objVarName; ret: Set(String) = Set{} | 
 			let objVar: ObjVar = step.preSnapshot.object->select(name = objVarName)->any(true) in
-				if( (not objVar.type.type.oclIsKindOf(PrimitiveType)) and (not objVar.type.isMany) ) then 
-					ret->including( objVar.type.type.name
-						+ '.allInstances()->excludes(' + objVarName + ')' + (objVar.type.type.oclIsKindOf(PrimitiveType)) + (objVar.type.isMany) )
+			let prop:Property = objVar.type.oclAsType(Property) in
+				if( (not prop.type.oclIsKindOf(PrimitiveType)) and (not prop.isMany) ) then 
+					ret->including( prop.type.name
+						+ '.allInstances()->excludes(' + objVarName + ')' + (prop.type.oclIsKindOf(PrimitiveType)) + (prop.isMany) )
 				else
 					ret
 				endif
@@ -570,16 +572,17 @@ post nextStep:
 		->removeAll(	step.preSnapshot.object->collect(name)->asSet() )
 		->iterate (objVarName; ret: Set(String) = Set{} |
 			let objVar: ObjVar = step.postSnapshot.object->select(name = objVarName)->any(true) in
+			let prop:Property = objVar.type.oclAsType(Property) in
 				let objConstr: String = 
-					if(not objVar.type.ownedExpression.oclIsUndefined()) then
-						' and ' + objVar.name + '=' + objVar.type.ownedExpression._body
+					if(not prop.ownedExpression.oclIsUndefined()) then
+						' and ' + objVar.name + '=' + prop.ownedExpression._body
 					else
 						''
 					endif
 				in 				
-				if( objVar.type.isPrimitive() ) then
+				if( prop.isPrimitive() ) then
 					ret->including('not ' + objVarName + '.oclIsUndefined()' + objConstr)
-				else if( objVar.type.isMany ) then
+				else if( prop.isMany ) then
 					ret->including('not ' + objVarName + '->isEmpty()' + objConstr)
 				else
 					ret->including( objVarName + '.oclIsNew()' + objConstr) 
@@ -811,14 +814,17 @@ Bag{[usecase.ownedProperties->select(c |
 [t.name/].allInstances()->size[/for]
 [/template]
 
+[comment]FIXME:aFrslModel.ownedPackages->any(p | p.name='usecase').ownedClasses->any(c | c.name = usecaseName)[/comment]
 [query public getUsecaseClass(aFrslModel : FrslModel, usecaseName : String) : Class =  
-	aFrslModel.ownedPackages->any(name='usecase').ownedClasses->any(name = usecaseName)/]
+	Package.allInstances()->any(p | p.eContainer().oclIsTypeOf(FrslModel) and p.name='usecase').ownedClasses->any(c | c.name = usecaseName)/]
 
-[query public getDomModel(aFrslModel : FrslModel): Package = 
-	aFrslModel.ownedPackages->any(p | p.name <> 'usecase' and p.name <> '$$')/]
+[comment]FIXME: aFrslModel.ownedPackages->any(p | p.name <> 'usecase' and p.name <> '$$')/][/comment]
+[query public getDomModel(aFrslModel : FrslModel): Package =
+	 Package.allInstances()->any(p | p.eContainer().oclIsTypeOf(FrslModel) and p.name <> 'usecase' and p.name <> '$$')/]
+	
 
 [query public getDomClass(aFrslModel : FrslModel) : Set(Class) = 
-	aFrslModel.getDomModel().ownedClasses->select(c: Class | c.oclIsTypeOf(Class) and c.name <> '_DomainClass')->asSet()/]
+	aFrslModel.getDomModel().ownedClasses->select(c | c.oclIsTypeOf(Class) and c.name <> '_DomainClass')->asSet()/]
 
 [comment]Get Model class of usecase[/comment]
 [query public getDomClass(usecase: Usecase) : Set(Class) =
@@ -882,7 +888,7 @@ Bag{[usecase.ownedProperties->select(c |
 [/template]
 
 [query public getAssocs(usecase: Usecase) : Set(AssociationClass) = 
-	usecase.eAllContents(VarLink)->collect(v: VarLink | v.assoc)->select(a: AssociationClass | a.name<>'_Tracks')->asSet() /]
+	usecase.eAllContents(VarLink)->collect(v: VarLink | v.assoc.oclAsType(AssociationClass))->select(a: AssociationClass | a.name<>'_Tracks')->asSet() /]
 
 [query public getVarLinkFromUsecase(usecaseEntity : Usecase) : Sequence(VarLink) = 
 	usecaseEntity.eAllContents(VarLink) /]
@@ -905,8 +911,14 @@ Bag{[usecase.ownedProperties->select(c |
 
 [comment]Get obj name in OCL like customer in [customer.money>10][/comment]
 [query public getObjInOCLFromSnapshot(snap : SnapshotPattern) : Set(PropertyCallExp) = 
-	snap.constraint->collect(c: Constraint | if c.eAllContents(PropertyCallExp)->first().ownedSource.oclIsTypeOf(PropertyCallExp) 
-		then c.eAllContents(PropertyCallExp)->first().ownedSource else c.eAllContents(PropertyCallExp)->first() endif)->asSet()
+	snap.constraint->collect(c |
+	 	let tmp:PropertyCallExp = c.eAllContents(PropertyCallExp)->first() in 
+		if tmp.ownedSource.oclIsTypeOf(PropertyCallExp) then 
+			tmp.ownedSource.oclAsType(PropertyCallExp)
+		else 
+			 tmp
+		endif
+	)->asSet()
 /]
 
 [query public getAllNextStep(step : Step) : Sequence(Step) = 
