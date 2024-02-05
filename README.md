@@ -2,7 +2,7 @@
 # Plugin frsl2filmstrip
 
 **Prerequisites:**
-- Install frsl-1.0.0
+- Install frsl-1.0.0 (jdk-20)
 - Install Acceleo: *Help -> Eclipse Marketplace -> Search "Acceleo 3.7" -> Install -> Next ...* (or using "Install New Software" with the update site: https://download.eclipse.org/acceleo/updates/releases/3.7/)
 - Clone this repo.
 - Open repo: 
