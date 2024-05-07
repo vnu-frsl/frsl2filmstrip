@@ -1,5 +1,5 @@
 [comment encoding = UTF-8 /]
-[module generateMain('http://www.xtext.org/sme/2020/FRSL', 'http://www.eclipse.org/ocl/2015/Pivot')]
+[module generateMain('platform:/resource/org.eclipse.sme.frsl/model/FRSL.ecore', 'http://www.eclipse.org/ocl/2015/Pivot')]
 
 [comment]---------------------------------------------------------[/comment] 
 [comment]-- 1. Generate USE model --------------------------------[/comment]
