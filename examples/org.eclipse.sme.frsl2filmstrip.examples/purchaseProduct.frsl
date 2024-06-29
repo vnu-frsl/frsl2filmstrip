@@ -1,0 +1,112 @@
+package productManagement{	
+	class Product{
+		attribute id: Integer;
+		attribute price: Integer;
+		attribute quantity: Integer;
+	}					
+	class Customer {				
+		attribute id: Integer;			
+	}
+	class Order {
+		attribute id: Integer;
+		attribute quantity: Integer;
+	}
+}
+
+association Makes
+  customer: Customer[1]
+  order: Order[0..*]
+end
+
+association Contains
+  order: Order[0..*]
+  product: Product[1]
+end
+
+actor Customer
+end
+
+usecase PurchaseProduct		
+	description = 'This use case describes a customer purchasing a product'	
+	primaryActor = Customer
+	
+	ucPrecondition	
+	description = 'The customer wants to purchase a product.'
+		customer: Customer;
+		product: Product;
+		[product.quantity > 0]
+	end
+	
+	ucPostcondition	
+	description = 'The customer purchases the product successfully.'
+		order: Order;
+		(customer, order): Makes;
+		(order, product): Contains;
+		[product.quantity = product.quantity@pre - order.quantity]
+	end
+	
+	actStep step1 	
+	description = '1. The customer wants to view product information.'
+	from
+		customer: Customer;
+	to
+	end
+
+	sysStep step2
+	description = '2. The system displays a list of products.'
+	from
+		products: Set(Product);
+		['@oclCompile' <> 'products = Product.allInstances()->select(p:Product | p.quantity > 0)']
+	to
+	actions	
+		Customer <- productIds: Set(Integer) = products->collect(id)->asSet();	
+	end
+
+	actStep step3 	
+	description = '3. The customer selects a specific product from the list.'
+	from	
+		products: Set(Product);
+		['@oclCompile' <> 'products->collect(id)->asSet()->includes(productId)']
+	to	
+	actions
+		Customer -> productId: Integer;
+	end
+	
+	sysStep step4 	
+	description = '4. The system displays detailed information about the selected product and requests the customer to enter the quantity.'
+	from	
+		customer: Customer;
+		product: Product;
+		[product.id = productId]
+	to
+	actions	
+		Customer <- productInfor: Sequence(OclAny) = Sequence{product.id, product.price, product.quantity};
+	end
+	
+	actStep step5 	
+	description = '5. The customer enters the the desired quantity.'
+	from	
+	to	
+	actions
+		Customer -> orderQuantity: Integer;
+	end
+	
+	sysStep step6 	
+	description = '6. The system creates a new order, updates the product information and displays the purchase information to the customer'
+	from
+		customer: Customer;
+		product: Product;
+		orderQuantity: Integer;
+		[orderQuantity <= product.quantity]
+	to
+		order: Order;
+		(customer, order): Makes;
+		(order, product): Contains;
+		['@oclCompile' <> 'order.id = Order.allInstances()->size()']
+		[order.quantity = orderQuantity]
+		[product.quantity = product.quantity@pre - order.quantity]
+		['@changed' <> 'product/{quantity}']
+	actions	
+		Customer <- purchaseInfor: Integer = product.price * orderQuantity;
+	end
+end

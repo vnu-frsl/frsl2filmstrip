@@ -74,8 +74,9 @@ end
 	frslModel: FrslModel = usecase.eContainer(FrslModel);
  	ucClass: Class = frslModel.getUsecaseClass(usecase.name);
 }]
+[if (usecase.getRejoinStepIds()->size() > 0)]
 enum RejnStep{[for( rStepId: String | usecase.getRejoinStepIds() ) separator(',')][rStepId/][/for]}
- 
+[/if]
 class [usecase.name/]
 attributes
 [for ( p: Property | ucClass.ownedProperties->removeAll(usecase.getRefProps() ))]
@@ -127,16 +128,18 @@ isFinalStep(stepId: String): Boolean =
 [comment]-- 1.2.2. Generate isValidRejnStep(rStepIndex: RejnStep): Boolean ----- [/comment]
 [comment]----------------------------------------------------------------------- [/comment]
 [template private  genIsValidRejnStep(usecase: Usecase) post(trim())]
-isValidRejnStep(rStepIndex: RejnStep): Boolean =
 [for( rStepId: String | usecase.getRejoinStepIds() ) ]
 [if(i = 1)]
+isValidRejnStep(rStepIndex: RejnStep): Boolean =
 	if ( rStepIndex = #[rStepId/] ) then				
 [else]
 	else if ( rStepIndex = #[rStepId/] ) then
 [/if]	
 		isOK_[rStepId/]()
 [/for]
+[if(usecase.getRejoinStepIds()->size()>0)]
 	else false [for( rStepId: String | usecase.getRejoinStepIds() ) ]endif[/for]
+[/if]
 [for( rStepId: String | usecase.getRejoinStepIds() ) ]
 isOK_[rStepId/](): Boolean = 
 	[usecase.eAllContents(RejoinStep)->any(r: RejoinStep | r.getStepId()= rStepId).condition.genPreSnapshotOCL()/]
@@ -147,16 +150,18 @@ isOK_[rStepId/](): Boolean =
 [comment]-- 1.2.3. Generate enum2String(rStepIndex: RejnStep): String ---------- [/comment]
 [comment]----------------------------------------------------------------------- [/comment]
 [template private  genEnum2String(usecase: Usecase) post(trim())]
-enum2String(rStepIndex: RejnStep): String =
 [for( rStepId: String | usecase.getRejoinStepIds() ) ]
 [if(i = 1)]
+enum2String(rStepIndex: RejnStep): String =
 	if ( rStepIndex = #[rStepId/] ) then				
 [else]
 	else if ( rStepIndex = #[rStepId/] ) then
 [/if]	
 		'[rStepId/]'
 [/for]
+[if(usecase.getRejoinStepIds()->size()>0)]
 	else 'null' [for( rStepId: String | usecase.getRejoinStepIds() ) ]endif[/for]
+[/if]
 [/template]
 
 [comment] 
@@ -599,14 +604,17 @@ post nextStep:
 	endif
 /]
 
+[comment]TODO: for the case @pre within the ucPostcondition[/comment]
 [query public oclCompile(oclConstr: Constraint): String = 
 	if( oclConstr.ownedSpecification._body.strstr('@oclCompile') ) then
 		oclConstr.ownedSpecification._body.tokenize('\'')->at(3)
 	else if( oclConstr.ownedSpecification._body.strstr('@changed') ) then
 		''
+	else if( oclConstr.eContainer().toString().strstr('exit_') and oclConstr.ownedSpecification._body.strstr('@pre') ) then
+		'true'
 	else
 		oclConstr.ownedSpecification._body
-	endif endif
+	endif endif endif
 /]
 
 [comment]---------------------------------------------------------[/comment]
@@ -618,7 +626,7 @@ post nextStep:
 --===================================================================
 ['['/]scenario [i/]: [curTrace->collect(s: Step | s.getStepId())->sep('->')/][']'/]
 --===================================================================
-Integer_min = -10
+Integer_min = 1
 Integer_max = 10
 
 String_max = 10
@@ -683,7 +691,7 @@ forbiddensharing = on
 }]
 [usecase.name/]_min = [numberOfTransition.add('1')/]
 [usecase.name/]_max = [numberOfTransition.add('1')/]
-[usecase.name/] = Set{[numberOfTransition.add('1')/]}
+[comment][usecase.name/] = Set{[numberOfTransition.add('1')/]}[/comment]
 
 [usecase.name/]_curStep = Set{'s0',[for (step : Step | curTrace) separator (',')]'[step.getStepId()/]'[/for]}
 
@@ -694,7 +702,7 @@ PredSucc[usecase.name/]_min = [numberOfTransition/]
 PredSucc[usecase.name/]_max = [numberOfTransition/]
 
 [for (p: Property | usecase.getRefProps()) separator ('\n')]
-[usecase.name/]_[p.name/]_min = 0
+[usecase.name/]_[p.name/]_min = [numberOfTransition.add('1')/]
 [usecase.name/]_[p.name/]_max = [numberOfTransition.add('1')/]
 [/for]
 [/template]
