@@ -97,7 +97,6 @@ usecase PurchaseProduct
 		customer: Customer;
 		product: Product;
 		orderQuantity: Integer;
-		[orderQuantity <= product.quantity]
 	to
 		order: Order;
 		(customer, order): Makes;

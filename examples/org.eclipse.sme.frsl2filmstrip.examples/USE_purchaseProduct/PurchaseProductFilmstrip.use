@@ -1,0 +1,394 @@
+model PurchaseProductModel
+
+
+class step3_act_PurchaseProductOpC < PurchaseProductOpC
+end
+
+composition SnapshotPurchaseProduct between
+  Snapshot[1] role snapshotPurchaseProduct
+  PurchaseProduct[*]
+end
+
+abstract class PurchaseProductOpC < OperationCall
+attributes
+  aSelf : PurchaseProduct
+end
+
+association Filmstrip between
+  Snapshot[0..1] role pred
+  Snapshot[0..1] role succ
+  OperationCall[0..1]
+end
+
+class step5_act_PurchaseProductOpC < PurchaseProductOpC
+end
+
+class step1_act_PurchaseProductOpC < PurchaseProductOpC
+end
+
+aggregation PredSuccCustomer between
+  Customer[0..1] role predCustomer
+  Customer[0..1] role succCustomer
+end
+
+abstract class OperationCall
+operations
+  pred() : Snapshot = 
+    if (self.pred->size() = 1) then self.pred->any( $elem0:Snapshot | true ) else null endif
+  succ() : Snapshot = 
+    if (self.succ->size() = 1) then self.succ->any( $elem0:Snapshot | true ) else null endif
+end
+
+class match_step3_act_PurchaseProductOpC < PurchaseProductOpC
+end
+
+composition SnapshotCustomer between
+  Snapshot[1] role snapshotCustomer
+  Customer[*]
+end
+
+class step4_sys_PurchaseProductOpC < PurchaseProductOpC
+end
+
+class step6_sys_PurchaseProductOpC < PurchaseProductOpC
+end
+
+class step2_sys_PurchaseProductOpC < PurchaseProductOpC
+end
+
+class match_step5_act_PurchaseProductOpC < PurchaseProductOpC
+end
+
+composition SnapshotOrder between
+  Snapshot[1] role snapshotOrder
+  Order[*]
+end
+
+composition SnapshotProduct between
+  Snapshot[1] role snapshotProduct
+  Product[*]
+end
+
+class Snapshot
+operations
+  copy() : Snapshot
+    begin
+      declare s : Snapshot;
+      s := new Snapshot;
+      for cl in self.customer do 
+        declare x : Customer;
+        x := new Customer;
+        insert (cl,x) into PredSuccCustomer;
+        insert (s,x) into SnapshotCustomer;
+      end;
+      ;
+      for cl in self.order do 
+        declare x : Order;
+        x := new Order;
+        insert (cl,x) into PredSuccOrder;
+        insert (s,x) into SnapshotOrder;
+      end;
+      for cl in self.product do 
+        declare x : Product;
+        x := new Product;
+        insert (cl,x) into PredSuccProduct;
+        insert (s,x) into SnapshotProduct;
+      end;
+      for cl in self.purchaseProduct do 
+        declare x : PurchaseProduct;
+        x := new PurchaseProduct;
+        insert (cl,x) into PredSuccPurchaseProduct;
+        insert (s,x) into SnapshotPurchaseProduct;
+      end;
+      for cl in s.customer do 
+        cl.id := cl.predCustomer.id;
+      end;
+      for cl in s.order do 
+        cl.id := cl.predOrder.id;
+        cl.quantity := cl.predOrder.quantity;
+      end;
+      for cl in s.product do 
+        cl.id := cl.predProduct.id;
+        cl.price := cl.predProduct.price;
+        cl.quantity := cl.predProduct.quantity;
+      end;
+      for cl in s.purchaseProduct do 
+        cl.curStep := cl.predPurchaseProduct.curStep;
+        cl.matchedStep := cl.predPurchaseProduct.matchedStep;
+        cl.orderQuantity := cl.predPurchaseProduct.orderQuantity;
+        cl.productId := cl.predPurchaseProduct.productId;
+        cl.productIds := cl.predPurchaseProduct.productIds;
+        cl.productInfor := cl.predPurchaseProduct.productInfor;
+        cl.purchaseInfor := cl.predPurchaseProduct.purchaseInfor;
+      end;
+      for cl in self.customer do 
+        if not cl.purchaseProductCustomer.isUndefined then
+          insert (cl.purchaseProductCustomer.succPurchaseProduct,cl.succCustomer) into PurchaseProduct_customer
+        end;
+        if not cl.order->isEmpty then
+          for elem in cl.order do 
+            insert (cl.succCustomer,elem.succOrder) into Makes
+          end
+        end;
+      end;
+      for cl in self.order do 
+        if not cl.purchaseProductOrder.isUndefined then
+          insert (cl.purchaseProductOrder.succPurchaseProduct,cl.succOrder) into PurchaseProduct_order
+        end;
+        if not cl.product.isUndefined then
+          insert (cl.succOrder,cl.product.succProduct) into Contains
+        end;
+      end;
+      for cl in self.product do 
+        if not cl.purchaseProductProducts.isUndefined then
+          insert (cl.purchaseProductProducts.succPurchaseProduct,cl.succProduct) into PurchaseProduct_products
+        end;
+        if not cl.purchaseProductProduct.isUndefined then
+          insert (cl.purchaseProductProduct.succPurchaseProduct,cl.succProduct) into PurchaseProduct_product
+        end;
+      end;
+      result := s;
+    end
+  pred() : Snapshot = 
+    if (self.pred->size() = 1) then self.pred->any( $elem0:Snapshot | true ) else null endif
+  succ() : Snapshot = 
+    if (self.succ->size() = 1) then self.succ->any( $elem0:Snapshot | true ) else null endif
+end
+
+aggregation PredSuccOrder between
+  Order[0..1] role predOrder
+  Order[0..1] role succOrder
+end
+
+aggregation PredSuccPurchaseProduct between
+  PurchaseProduct[0..1] role predPurchaseProduct
+  PurchaseProduct[0..1] role succPurchaseProduct
+end
+
+aggregation PredSuccProduct between
+  Product[0..1] role predProduct
+  Product[0..1] role succProduct
+end
+
+class Product
+attributes
+  id : Integer
+  price : Integer
+  quantity : Integer
+end
+
+class Customer
+attributes
+  id : Integer
+end
+
+class Order
+attributes
+  id : Integer
+  quantity : Integer
+end
+
+class PurchaseProduct
+attributes
+  productId : Integer
+  orderQuantity : Integer
+  purchaseInfor : Integer
+  productInfor : Sequence(OclAny)
+  productIds : Set(Integer)
+  curStep : String
+  matchedStep : String
+operations
+  enter_PurchaseProduct() : Boolean = 
+    (((not self.product.isUndefined() and not self.customer.isUndefined()) and (self.product.quantity > 0)) and (self.curStep = 's0'))
+  exit_PurchaseProduct() : Boolean = 
+    ((((not self.order.isUndefined() and (self.order.product = self.product)) and self.customer.order->includes(self.order)) and true) and self.isFinalStep(self.curStep))
+  step1_act()
+  step2_sys()
+  step3_act()
+  match_step3_act()
+  step4_sys()
+  step5_act()
+  match_step5_act()
+  step6_sys()
+  isFinalStep(stepId : String) : Boolean = 
+    Set{'step6_sys'}->includes(stepId)
+end
+
+association Contains between
+  Order[*]
+  Product[1]
+end
+
+association Makes between
+  Customer[1]
+  Order[*]
+end
+
+association PurchaseProduct_customer between
+  PurchaseProduct[0..1] role purchaseProductCustomer
+  Customer[0..1]
+end
+
+association PurchaseProduct_product between
+  PurchaseProduct[0..1] role purchaseProductProduct
+  Product[0..1]
+end
+
+association PurchaseProduct_order between
+  PurchaseProduct[0..1] role purchaseProductOrder
+  Order[0..1]
+end
+
+association PurchaseProduct_products between
+  PurchaseProduct[0..1] role purchaseProductProducts
+  Product[*] role products
+end
+
+constraints
+context Customer inv validLinkingMakes:
+  self.order->forAll( c:Order | (c.snapshotOrder = self.snapshotCustomer) )
+
+context Customer inv validSnapshotLinking:
+  (self.succCustomer.isDefined() implies (self.succCustomer.snapshotCustomer = self.snapshotCustomer.succ()))
+
+context OperationCall inv assocClassBehavior:
+  (((self.pred->size() = 1) and (self.succ->size() = 1)) and OperationCall.allInstances()->forAll( op:OperationCall | (((self.pred = op.pred) and (self.succ = op.succ)) implies (self = op)) ))
+
+context Order inv validLinkingContains:
+  (self.product.isDefined() implies (self.snapshotOrder = self.product.snapshotProduct))
+
+context Order inv validSnapshotLinking:
+  (self.succOrder.isDefined() implies (self.succOrder.snapshotOrder = self.snapshotOrder.succ()))
+
+context Product inv validSnapshotLinking:
+  (self.succProduct.isDefined() implies (self.succProduct.snapshotProduct = self.snapshotProduct.succ()))
+
+context PurchaseProduct inv validLinkingPurchaseProduct_customer:
+  (self.customer.isDefined() implies (self.snapshotPurchaseProduct = self.customer.snapshotCustomer))
+
+context PurchaseProduct inv validLinkingPurchaseProduct_order:
+  (self.order.isDefined() implies (self.snapshotPurchaseProduct = self.order.snapshotOrder))
+
+context PurchaseProduct inv validLinkingPurchaseProduct_product:
+  (self.product.isDefined() implies (self.snapshotPurchaseProduct = self.product.snapshotProduct))
+
+context PurchaseProduct inv validLinkingPurchaseProduct_products:
+  self.products->forAll( c:Product | (c.snapshotProduct = self.snapshotPurchaseProduct) )
+
+context PurchaseProduct inv validSnapshotLinking:
+  (self.succPurchaseProduct.isDefined() implies (self.succPurchaseProduct.snapshotPurchaseProduct = self.snapshotPurchaseProduct.succ()))
+
+context PurchaseProductOpC inv aSelfDefined:
+  self.aSelf.isDefined()
+
+context PurchaseProductOpC inv aSelfInPred:
+  (self.aSelf.snapshotPurchaseProduct = self.pred())
+
+context Snapshot inv cycleFree:
+  Set{self.succ()}->closure( s:Snapshot | s.succ() )->excludes(self)
+
+context Snapshot inv oneFilmstrip:
+  ((Snapshot.allInstances()->select( s:Snapshot | s.pred().isUndefined() )->size() = 1) and (Snapshot.allInstances()->select( s:Snapshot | s.succ().isUndefined() )->size() = 1))
+
+context match_step3_act_PurchaseProductOpC inv post_post1:
+  ((not aSelf.succPurchaseProduct.productId.isUndefined() and aSelf.succPurchaseProduct.products->collect( $elem2:Product | $elem2.id )->asSet()->includes(aSelf.succPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.matchedStep = 'match_step3_act'))
+
+context match_step3_act_PurchaseProductOpC inv post_unChangedPart:
+  ((((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) )) and (aSelf.succPurchaseProduct.curStep = aSelf.succPurchaseProduct.predPurchaseProduct.curStep))
+
+context match_step3_act_PurchaseProductOpC inv pre_pre1:
+  (aSelf.matchedStep = 'match_null')
+
+context match_step5_act_PurchaseProductOpC inv post_post2:
+  (not aSelf.succPurchaseProduct.orderQuantity.isUndefined() and (aSelf.succPurchaseProduct.matchedStep = 'match_step5_act'))
+
+context match_step5_act_PurchaseProductOpC inv post_unChangedPart:
+  ((((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) )) and (aSelf.succPurchaseProduct.curStep = aSelf.succPurchaseProduct.predPurchaseProduct.curStep))
+
+context match_step5_act_PurchaseProductOpC inv pre_pre2:
+  (aSelf.matchedStep = 'match_null')
+
+context step1_act_PurchaseProductOpC inv post_nextStep:
+  ((aSelf.succPurchaseProduct.curStep = 'step1_act') and (aSelf.succPurchaseProduct.matchedStep = 'match_null'))
+
+context step1_act_PurchaseProductOpC inv post_postSnapshot:
+  self.succ().customer->includes(aSelf.succPurchaseProduct.customer)
+
+context step1_act_PurchaseProductOpC inv post_unChangedPart:
+  ((((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) ))
+
+context step1_act_PurchaseProductOpC inv pre_preStep:
+  ((aSelf.curStep = 's0') and aSelf.enter_PurchaseProduct())
+
+context step2_sys_PurchaseProductOpC inv post_nextStep:
+  ((aSelf.succPurchaseProduct.curStep = 'step2_sys') and (aSelf.succPurchaseProduct.matchedStep = 'match_null'))
+
+context step2_sys_PurchaseProductOpC inv post_postSnapshot:
+  (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.products->collect( $elem0:Product | $elem0.id )->asSet())
+
+context step2_sys_PurchaseProductOpC inv post_unChangedPart:
+  (((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) ))
+
+context step2_sys_PurchaseProductOpC inv pre_preSnapshot:
+  (aSelf.products = self.pred().product->select( p:Product | (p.quantity > 0) ))
+
+context step2_sys_PurchaseProductOpC inv pre_preStep:
+  (aSelf.curStep = 'step1_act')
+
+context step3_act_PurchaseProductOpC inv post_nextStep:
+  ((aSelf.succPurchaseProduct.curStep = 'step3_act') and (aSelf.succPurchaseProduct.matchedStep = 'match_null'))
+
+context step3_act_PurchaseProductOpC inv post_unChangedPart:
+  ((((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) ))
+
+context step3_act_PurchaseProductOpC inv pre_preSnapshot:
+  (not aSelf.productId.isUndefined() and aSelf.products->collect( $elem1:Product | $elem1.id )->asSet()->includes(aSelf.productId))
+
+context step3_act_PurchaseProductOpC inv pre_preStep:
+  ((aSelf.curStep = 'step2_sys') and (aSelf.matchedStep = 'match_step3_act'))
+
+context step4_sys_PurchaseProductOpC inv post_nextStep:
+  ((aSelf.succPurchaseProduct.curStep = 'step4_sys') and (aSelf.succPurchaseProduct.matchedStep = 'match_null'))
+
+context step4_sys_PurchaseProductOpC inv post_postSnapshot:
+  (self.succ().customer->includes(aSelf.succPurchaseProduct.customer) and self.succ().product->includes(aSelf.succPurchaseProduct.product))
+
+context step4_sys_PurchaseProductOpC inv post_unChangedPart:
+  (((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) ))
+
+context step4_sys_PurchaseProductOpC inv pre_preSnapshot:
+  (aSelf.product.id = aSelf.productId)
+
+context step4_sys_PurchaseProductOpC inv pre_preStep:
+  (aSelf.curStep = 'step3_act')
+
+context step5_act_PurchaseProductOpC inv post_nextStep:
+  ((aSelf.succPurchaseProduct.curStep = 'step5_act') and (aSelf.succPurchaseProduct.matchedStep = 'match_null'))
+
+context step5_act_PurchaseProductOpC inv post_unChangedPart:
+  ((((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.purchaseInfor = aSelf.succPurchaseProduct.predPurchaseProduct.purchaseInfor)) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.order = aSelf.succPurchaseProduct.predPurchaseProduct.order.succOrder)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and self.succ().product->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and self.succ().order->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) ))
+
+context step5_act_PurchaseProductOpC inv pre_preSnapshot:
+  not aSelf.orderQuantity.isUndefined()
+
+context step5_act_PurchaseProductOpC inv pre_preStep:
+  ((aSelf.curStep = 'step4_sys') and (aSelf.matchedStep = 'match_step5_act'))
+
+context step6_sys_PurchaseProductOpC inv post_nextStep:
+  (((aSelf.succPurchaseProduct.curStep = 'step6_sys') and (aSelf.succPurchaseProduct.matchedStep = 'match_null')) and aSelf.succPurchaseProduct.exit_PurchaseProduct())
+
+context step6_sys_PurchaseProductOpC inv post_postSnapshot:
+  ((((((((self.succ().customer->includes(aSelf.succPurchaseProduct.customer) and self.succ().product->includes(aSelf.succPurchaseProduct.product)) and aSelf.succPurchaseProduct.order.predOrder.isUndefined()) and (aSelf.succPurchaseProduct.order.product = aSelf.succPurchaseProduct.product)) and aSelf.succPurchaseProduct.customer.order->includes(aSelf.succPurchaseProduct.order)) and (aSelf.succPurchaseProduct.order.id = self.succ().order->size())) and (aSelf.succPurchaseProduct.order.quantity = aSelf.succPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.product.quantity = (aSelf.succPurchaseProduct.product.predProduct.quantity - aSelf.succPurchaseProduct.order.quantity))) and (aSelf.succPurchaseProduct.purchaseInfor = (aSelf.succPurchaseProduct.product.price * aSelf.succPurchaseProduct.orderQuantity)))
+
+context step6_sys_PurchaseProductOpC inv post_unChangedPart:
+  (((((((((((aSelf.succPurchaseProduct.product = aSelf.succPurchaseProduct.predPurchaseProduct.product.succProduct) and (aSelf.succPurchaseProduct.productIds = aSelf.succPurchaseProduct.predPurchaseProduct.productIds)) and (aSelf.succPurchaseProduct.productId = aSelf.succPurchaseProduct.predPurchaseProduct.productId)) and (aSelf.succPurchaseProduct.products = aSelf.succPurchaseProduct.predPurchaseProduct.products->collectNested( p1:Product | p1.succProduct )->asSet())) and (aSelf.succPurchaseProduct.orderQuantity = aSelf.succPurchaseProduct.predPurchaseProduct.orderQuantity)) and (aSelf.succPurchaseProduct.productInfor = aSelf.succPurchaseProduct.predPurchaseProduct.productInfor)) and (aSelf.succPurchaseProduct.customer = aSelf.succPurchaseProduct.predPurchaseProduct.customer.succCustomer)) and (self.succ().product - Set{aSelf.succPurchaseProduct.product})->forAll( x:Product | ((((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)) and (x.predProduct.quantity = x.quantity)) )) and (let x:Product = aSelf.succPurchaseProduct.product in (((x = x) and (x.predProduct.id = x.id)) and (x.predProduct.price = x.price)))) and self.succ().customer->forAll( x:Customer | ((x = x) and (x.predCustomer.id = x.id)) )) and (self.succ().order - Set{aSelf.succPurchaseProduct.order})->forAll( x:Order | (((((x = x) and (x.predOrder.id = x.id)) and (x.predOrder.quantity = x.quantity)) and (x.predOrder.customer.succCustomer = x.customer)) and (x.predOrder.product.succProduct = x.product)) ))
+
+context step6_sys_PurchaseProductOpC inv pre_preSnapshot:
+  (aSelf.orderQuantity <= aSelf.product.quantity)
+
+context step6_sys_PurchaseProductOpC inv pre_preStep:
+  (aSelf.curStep = 'step5_act')
+
+context Snapshot::copy() : Snapshot
+  pre uncopied: self.succ().isUndefined()
+

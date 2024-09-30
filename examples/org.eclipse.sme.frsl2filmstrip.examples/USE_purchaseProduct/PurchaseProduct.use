@@ -1,0 +1,318 @@
+----------------------------------------------------------------
+-- the USE model generated for the use case PurchaseProduct ----
+----------------------------------------------------------------
+
+model PurchaseProductModel
+
+----------------------------------------
+-- classes -----------------------------
+---------------------------------------- 
+
+class Product
+attributes
+	id: Integer
+	price: Integer
+	quantity: Integer
+end
+
+class Customer
+attributes
+	id: Integer
+end
+
+class Order
+attributes
+	id: Integer
+	quantity: Integer
+end
+
+class PurchaseProduct
+attributes
+	productId: Integer
+	orderQuantity: Integer
+	purchaseInfor: Integer
+	productInfor: Sequence(OclAny)
+	productIds: Set(Integer)
+	curStep: String
+	matchedStep: String
+operations
+	enter_PurchaseProduct(): Boolean = 
+		(not product.oclIsUndefined()) and (not customer.oclIsUndefined())
+		and (product.quantity > 0) 
+		and curStep = 's0'
+	exit_PurchaseProduct(): Boolean = 
+		(not order.oclIsUndefined())
+		and order.product = product and customer.order->includes(order)
+		and (true) 
+		and isFinalStep(curStep)
+	step1_act()
+	step2_sys()
+	step3_act()
+	match_step3_act()
+	step4_sys()
+	step5_act()
+	match_step5_act()
+	step6_sys()
+	isFinalStep(stepId: String): Boolean =			
+		Set{ 'step6_sys' }->includes(stepId)	 
+	
+	
+end
+
+----------------------------------------
+-- associations ------------------------
+----------------------------------------
+
+association Contains between
+	Order[0..*] role order
+	Product[1] role product
+end
+
+association Makes between
+	Customer[1] role customer
+	Order[0..*] role order
+end
+
+association PurchaseProduct_customer between
+	PurchaseProduct[0..1] role purchaseProductCustomer
+	Customer[0..1] role customer
+end
+association PurchaseProduct_product between
+	PurchaseProduct[0..1] role purchaseProductProduct
+	Product[0..1] role product
+end
+association PurchaseProduct_order between
+	PurchaseProduct[0..1] role purchaseProductOrder
+	Order[0..1] role order
+end
+association PurchaseProduct_products between
+	PurchaseProduct[0..1] role purchaseProductProducts
+	Product[0..*] role products
+end
+
+----------------------------------------
+-- OCL constraints ---------------------
+----------------------------------------
+
+constraints
+	
+	-- context PurchaseProduct inv oneInstance: 
+		-- PurchaseProduct.allInstances()->size=1
+
+	context PurchaseProduct::step1_act()
+		-- constraints for the nextstep
+		pre preStep: 
+			curStep = 's0' and enter_PurchaseProduct() 
+		post nextStep: 
+			curStep = 'step1_act'
+			and matchedStep = 'match_null'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productIds = productIds@pre
+			and productId = productId@pre
+			and order = order@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+		-- constraints for the postSnapshot
+		post postSnapshot: 
+			Customer.allInstances()->includes(customer)
+	
+	context PurchaseProduct::step2_sys()
+		-- constraints for the nextstep
+		pre preStep: 
+			curStep = 'step1_act' 
+		post nextStep: 
+			curStep = 'step2_sys'
+			and matchedStep = 'match_null'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productId = productId@pre
+			and order = order@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+		-- constraints for the preSnapshot
+		pre preSnapshot:
+			(products = Product.allInstances()->select(p:Product | p.quantity > 0))
+--FIXME begin	
+		-- constraints for the postSnapshot
+		post postSnapshot:
+			productIds = products->collect(id)->asSet()
+--FIXME end
+	
+	context PurchaseProduct::step3_act()
+		-- constraints for the nextstep
+		pre preStep: 
+			curStep = 'step2_sys' and matchedStep = 'match_step3_act'
+		post nextStep: 
+			curStep = 'step3_act'
+			and matchedStep = 'match_null'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productIds = productIds@pre
+			and productId = productId@pre
+			and order = order@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+		-- constraints for the preSnapshot
+		pre preSnapshot:
+			(not productId.oclIsUndefined())
+			and (products->collect(id)->asSet()->includes(productId))
+	
+	context PurchaseProduct::step4_sys()
+		-- constraints for the nextstep
+		pre preStep: 
+			curStep = 'step3_act' 
+		post nextStep: 
+			curStep = 'step4_sys'
+			and matchedStep = 'match_null'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productIds = productIds@pre
+			and productId = productId@pre
+			and order = order@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+		-- constraints for the preSnapshot
+		pre preSnapshot:
+			(product.id = productId)
+		-- constraints for the postSnapshot
+		post postSnapshot: 
+			Customer.allInstances()->includes(customer) and Product.allInstances()->includes(product)
+--FIXME begin			
+--			and productInfor = Sequence{product.id, product.price, product.quantity}
+--FIXME end	
+	context PurchaseProduct::step5_act()
+		-- constraints for the nextstep
+		pre preStep: 
+			curStep = 'step4_sys' and matchedStep = 'match_step5_act'
+		post nextStep: 
+			curStep = 'step5_act'
+			and matchedStep = 'match_null'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productIds = productIds@pre
+			and productId = productId@pre
+			and order = order@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+		-- constraints for the preSnapshot
+		pre preSnapshot:
+			(not orderQuantity.oclIsUndefined())
+	
+	context PurchaseProduct::step6_sys()
+		-- constraints for the nextstep
+		pre preStep: 
+			curStep = 'step5_act' 
+		post nextStep: 
+			curStep = 'step6_sys'
+			and matchedStep = 'match_null'
+			and exit_PurchaseProduct()
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and productIds = productIds@pre
+			and productId = productId@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+--FIXME-begin			
+			--and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Product.allInstances - Set{product})->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)			
+			and (let x:Product = product in x@pre=x and x.id@pre=x.id and x.price@pre=x.price)			
+--FIXME-end			
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+--FIXME-begin			
+			--and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+			and (Order.allInstances - Set{order})->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+--FIXME-end			
+		-- constraints for the preSnapshot
+		pre preSnapshot:
+			(orderQuantity <= product.quantity)
+		-- constraints for the postSnapshot
+		post postSnapshot: 
+			Customer.allInstances()->includes(customer) and Product.allInstances()->includes(product) and order.oclIsNew()
+			and order.product = product and customer.order->includes(order)
+			and (order.id = Order.allInstances()->size())
+			and (order.quantity = orderQuantity)
+			and (product.quantity = product.quantity@pre - order.quantity)
+--FIXME-begin			
+			and (purchaseInfor = product.price * orderQuantity)
+--FIXME-end
+	context PurchaseProduct::match_step3_act()
+		pre:
+			matchedStep = 'match_null'
+		post:
+			(not productId.oclIsUndefined())
+			and (products->collect(id)->asSet()->includes(productId))
+			and matchedStep = 'match_step3_act'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productIds = productIds@pre
+			and order = order@pre
+			and products = products@pre
+			and orderQuantity = orderQuantity@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+			and curStep = curStep@pre
+	context PurchaseProduct::match_step5_act()
+		pre:
+			matchedStep = 'match_null'
+		post:
+			(not orderQuantity.oclIsUndefined())
+			and matchedStep = 'match_step5_act'
+		-- constraints for the unchanged part
+		post unChangedPart:
+			product = product@pre
+			and purchaseInfor = purchaseInfor@pre
+			and productIds = productIds@pre
+			and productId = productId@pre
+			and order = order@pre
+			and products = products@pre
+			and productInfor = productInfor@pre
+			and customer = customer@pre
+			and (Product.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.price@pre=x.price and x.quantity@pre=x.quantity)
+			and (Customer.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id)
+			and (Order.allInstances)->forAll(x | x@pre=x and x.id@pre=x.id and x.quantity@pre=x.quantity and x.customer@pre=x.customer and x.product@pre=x.product)
+			and curStep = curStep@pre
+----------------------------------------
+
