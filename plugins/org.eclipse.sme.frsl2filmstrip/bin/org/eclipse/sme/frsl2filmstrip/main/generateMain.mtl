@@ -1,0 +1,1029 @@
+[comment encoding = UTF-8 /]
+[module generateMain('platform:/resource/org.eclipse.sme.frsl/model/FRSL.ecore', 'http://www.eclipse.org/ocl/2015/Pivot')]
+
+[comment]---------------------------------------------------------[/comment] 
+[comment]-- 1. Generate USE model --------------------------------[/comment]
+[comment]---------------------------------------------------------[/comment] 
+[template public genMain(aFrslModel : FrslModel)]
+[comment @main/]
+[for (usecase : Usecase | aFrslModel.usecase)]
+[file (usecase.name + '.use', false, 'UTF-8')]	
+----------------------------------------------------------------
+-- the USE model generated for the use case [usecase.name/] ----
+----------------------------------------------------------------
+
+model [usecase.name + 'Model'/]
+
+----------------------------------------
+-- classes -----------------------------
+---------------------------------------- 
+
+[aFrslModel.genDomClass()/]
+
+[usecase.genUsecaseClass()/]
+
+----------------------------------------
+-- associations ------------------------
+----------------------------------------
+
+[aFrslModel.genAssociation()/]
+
+[usecase.genAssoc4UcAttrs()/]
+
+----------------------------------------
+-- OCL constraints ---------------------
+----------------------------------------
+
+constraints
+	
+	[usecase.genUsecaseConstraint()/]
+
+	[usecase.genOperationConstraint()/]
+
+	[usecase.genMatchingOp()/]
+----------------------------------------
+[/file]
+
+[usecase.genPropertiesFile4UseValidator()/]
+
+[/for]
+[/template]
+
+[comment]-------------------------------------------------------------[/comment] 
+[comment]-- 1.1 Generate domain classes, e.g., class Customer --------[/comment]
+[comment]-------------------------------------------------------------[/comment] 
+[template public genDomClass(frslModel : FrslModel) post(trim())]
+[for( class: Class | frslModel.getDomClass() ) separator('\n')]
+class [class.name/]
+attributes
+[for (p: Property | class.ownedProperties)]
+[if (p.isPrimitiveSet())]
+	[p.name/]: [p.type.name/]([p.getCollectElemType().name/])
+[elseif (p.isPrimitive())]  
+	[p.name/]: [p.type.name/]
+[/if]
+[/for]
+end
+[/for]
+[/template]
+
+[comment]-------------------------------------------------------------[/comment] 
+[comment]-- 1.2. Generate use case classes, e.g., class BuyTicket-----[/comment]
+[comment]-------------------------------------------------------------[/comment] 
+[template public genUsecaseClass(usecase : Usecase) post(trim()){	
+	frslModel: FrslModel = usecase.eContainer(FrslModel);
+ 	ucClass: Class = frslModel.getUsecaseClass(usecase.name);
+}]
+[if (usecase.getRejoinStepIds()->size() > 0)]
+enum RejnStep{[for( rStepId: String | usecase.getRejoinStepIds() ) separator(',')][rStepId/][/for]}
+[/if]
+class [usecase.name/]
+attributes
+[for ( p: Property | ucClass.ownedProperties->removeAll(usecase.getRefProps() ))]
+[if (p.type.oclIsKindOf(CollectionType))]
+	[p.name/]: [p.type.name/]([p.getCollectElemType().name/])
+[else]
+	[p.name/]: [p.type.name/]
+[/if]
+[/for]
+	curStep: String
+	matchedStep: String
+operations
+[for (op: Operation | ucClass.ownedOperations)]
+[if( op.isUcPre())]
+	[op.name/](): Boolean = 
+		[usecase.precondition.snapshot.genPreSnapshotOCL()/] 
+		and curStep = 's0'
+[elseif( op.isUcPost() )]  
+	[op.name/](): Boolean = 
+		[usecase.postcondition.snapshot.genPreSnapshotOCL()/] 
+		and isFinalStep(curStep)
+[else]
+	[op.name/]()
+[/if]
+[if(( not op.getStep().oclIsUndefined() ) and (op.getStep().oclIsKindOf(ActStep)) )]
+[if(op.getStep().isMatchingStep())]
+	match_[op.name/]()
+[/if]
+[/if]
+[/for]
+	[usecase.genIsFinalSteps()/]	 
+	[usecase.genIsValidRejnStep()/]
+	[usecase.genEnum2String()/]
+end
+[/template]
+
+[comment]----------------------------------------------------------------------- [/comment]
+[comment]-- 1.2.1. Generate isFinalStep(stepId: String): Boolean --------------- [/comment]
+[comment]----------------------------------------------------------------------- [/comment]
+[template private  genIsFinalSteps(usecase: Usecase) post(trim())]
+isFinalStep(stepId: String): Boolean =			
+[let finalSteps: Sequence(String) = 
+	usecase.eAllContents(Step)->select( nextStep = null )->collect( getStepId() )->asSequence()]
+	Set{ [for(st: String | finalSteps) separator(',')]'[st/]'[/for] }->includes(stepId)
+[/let]
+[/template]
+
+[comment]----------------------------------------------------------------------- [/comment]
+[comment]-- 1.2.2. Generate isValidRejnStep(rStepIndex: RejnStep): Boolean ----- [/comment]
+[comment]----------------------------------------------------------------------- [/comment]
+[template private  genIsValidRejnStep(usecase: Usecase) post(trim())]
+[for( rStepId: String | usecase.getRejoinStepIds() ) ]
+[if(i = 1)]
+isValidRejnStep(rStepIndex: RejnStep): Boolean =
+	if ( rStepIndex = #[rStepId/] ) then				
+[else]
+	else if ( rStepIndex = #[rStepId/] ) then
+[/if]	
+		isOK_[rStepId/]()
+[/for]
+[if(usecase.getRejoinStepIds()->size()>0)]
+	else false [for( rStepId: String | usecase.getRejoinStepIds() ) ]endif[/for]
+[/if]
+[for( rStepId: String | usecase.getRejoinStepIds() ) ]
+isOK_[rStepId/](): Boolean = 
+	[usecase.eAllContents(RejoinStep)->any(r: RejoinStep | r.getStepId()= rStepId).condition.genPreSnapshotOCL()/]
+[/for]
+[/template]
+
+[comment]----------------------------------------------------------------------- [/comment]
+[comment]-- 1.2.3. Generate enum2String(rStepIndex: RejnStep): String ---------- [/comment]
+[comment]----------------------------------------------------------------------- [/comment]
+[template private  genEnum2String(usecase: Usecase) post(trim())]
+[for( rStepId: String | usecase.getRejoinStepIds() ) ]
+[if(i = 1)]
+enum2String(rStepIndex: RejnStep): String =
+	if ( rStepIndex = #[rStepId/] ) then				
+[else]
+	else if ( rStepIndex = #[rStepId/] ) then
+[/if]	
+		'[rStepId/]'
+[/for]
+[if(usecase.getRejoinStepIds()->size()>0)]
+	else 'null' [for( rStepId: String | usecase.getRejoinStepIds() ) ]endif[/for]
+[/if]
+[/template]
+
+[comment] 
+[template private genRejoinSteps(usecase: Usecase) post(replaceAll('\n', '').trim())]
+[comment]isValidRejnStep(rStepId: String): Boolean = checkRejnStep( [usecase.genRejoinSteps()/]->indexOf(rStepId) )[/comment]
+Sequence{ [for( rStepStr: String | usecase.getRejoinStepIds()) separator(',')]'[rStepStr/]'[/for] }	
+[/template]
+The following implementation should be ok but inapplicable since use-filmstrip currently does not support the type Sequence, String.size
+[template private genRejoinSteps(usecase: Usecase) post(replaceAll('\n', '').trim())]
+[comment]isValidRejnStep(rStepId: String): Boolean = checkRejnStep( [usecase.genRejoinSteps()/]->select(s | s.substring( 1, rStepId.size ) = rStepId )->any(true).substring(rStepId.size + 2, rStepId.size + 2).toInteger() )[/comment]
+Set{ [for( rStepStr: String | usecase.getRejoinStepIds()) separator(',')]'[rStepStr/]*[i/]'[/for] }	
+[/template]
+[template private genRejoinSteps(usecase: Usecase) post(replaceAll('\n', '').trim())]
+[comment]let ids: Set(String) = [usecase.genRejoinSteps()/]->select(s: Set(String) | (s - Set{rStepId})->size() = 1 )->any(true) in
+				ids->select(id | id <> rStepId )->collect(toInteger())->any(true)[/comment]
+Set{ [for( rStepStr: String | usecase.getRejoinStepIds()) separator(',')]Set{'[rStepStr/]','[i/]'}[/for] }
+[/template]
+[/comment]
+
+[query public getRejoinStepIds(usecase: Usecase): Sequence(String) = 
+	usecase.eAllContents(RejoinStep)->collect(r: RejoinStep | r.getStepId())->asSequence()
+/]
+
+[comment]-------------------------------------------------------------------------------------------[/comment] 
+[comment]-- 1.3 Generate the operation to define 'isMatched attrs' as paras of the stepOperation ---[/comment]
+[comment]-------------------------------------------------------------------------------------------[/comment] 
+[template public genMatchingOp(usecase : Usecase) post(trim()){	
+	frslModel: FrslModel = usecase.eContainer(FrslModel);
+ 	ucClass: Class = frslModel.getUsecaseClass(usecase.name);
+}]
+[for(op: Operation | ucClass.ownedOperations->select( (not getStep().oclIsUndefined()) and getStep().oclIsKindOf(ActStep))->select(getStep().isMatchingStep()))]
+[let step: ActStep = op.getStep()]
+context [usecase.name/]::match_[op.name/]()
+	pre:
+		matchedStep = 'match_null'
+	post:
+		[step.preSnapshot.genPreSnapshotOCL()/]
+		and matchedStep = 'match_[op.name/]'
+	-- constraints for the unchanged part
+	[step.genConstraint4UnchangedPart(step.getMatchedObjVar(), Sequence{})/]
+		and curStep = curStep@pre
+[/let]		
+[/for]
+[/template]
+
+[comment]------------------------------------------------------------------[/comment] 
+[comment]-- 1.3.1 Generate constraints for the unchanged part--------------[/comment]
+[comment]------------------------------------------------------------------[/comment]
+[template public genConstraint4UnchangedPart(step : ActStep, objVars: Sequence(ObjVar), propNames: Sequence(Sequence(String))) post(trim()){
+	usecase: Usecase = step.getUsecase();
+	frslModel : FrslModel = usecase.eContainer(FrslModel);
+	usecaseName : String = usecase.name;
+	ucClass: Class = frslModel.getUsecaseClass(usecaseName);
+}]	
+[let unchangedProps: Set(Property) = ucClass.ownedProperties->select(p: Property | step.getNewObjVarNames()->excludes( p.name) ) 
+	- objVars->select(type.oclAsType(Property).isPrimitive() or type.oclAsType(Property).isPrimitiveSet())->collect(type)->asSet()]
+[comment][let unchangedProps: Set(Property) = ucClass.ownedProperties->select(p: Property | step.getNewObjVarNames()->excludes( p.name)) - objVars->collect(type)->asSet()][/comment]
+[for(p: Property | unchangedProps)]
+[if ( i = 1) ]
+post unChangedPart:
+	[p.name/] = [p.name/]@pre
+[else]
+	and [p.name/] = [p.name/]@pre
+[/if]
+[/for]
+[/let]
+[let domainObjVars: Sequence(ObjVar) = objVars->select( ( (not type.oclAsType(Property).isPrimitive()) and (not type.oclIsKindOf(CollectionType)) ))]
+[for (class: Class | usecase.getDomClass()) before('\tand ') separator('\tand ')]
+[let excludedObjSet1: String = 
+	if(domainObjVars->select( type.oclAsType(Property).type.name = class.name )->size() > 0) then
+		' - Set{' + domainObjVars->select(type.oclAsType(Property).type.name = class.name)->collect(name)->sep(',')->toString() + '}'
+	else
+		''
+	endif]
+[comment]TODO: check it!
+[let excludedObjSet2: String = 
+	if(objVars->select(type.isMany)->size() > 0) then 
+		' - (' + objVars->select(type.isMany)->collect(name)->sep('+')->toString() + ')'
+	else
+		''
+	endif][/comment]
+([class.name/].allInstances[excludedObjSet1/])->forAll(x | x@pre=x[for (property : Property | class.getAllOneProps()) before(' and ') separator(' and ')]
+x.[property.name/]@pre=x.[property.name/][/for])
+[/let]
+[/for]
+[for(objVar: ObjVar | domainObjVars)]
+[let class: Class = frslModel.getDomClass()->select(name = objVar.type.oclAsType(Property).type.name)->any(true)]
+[let allAttrs: Set(String) = class.getAllOneProps()->collect(name)->asSet()]
+[let changedAttrs: Set(String) = 
+	if(propNames->size() = 0) then
+		Set{}
+	else
+		propNames->at( objVars->indexOf(objVar) )->asSet()
+	endif]
+[let unchangedAttrs: Set(String) =  allAttrs - changedAttrs]
+[for(unchangedAttr: String | unchangedAttrs) before('\tand ') separator('\tand ')]
+[objVar.name/].[unchangedAttr/] = [objVar.name/].[unchangedAttr/]@pre
+[/for][/let][/let][/let][/let][/for][/let]
+[/template]
+
+[comment]---------------------------------------------------------[/comment] 
+[comment]-- 1.3.1.1. Generate newObjVars -------------------------[/comment]
+[comment]---------------------------------------------------------[/comment]
+[query public getNewObjVarNames(step : ActStep): Sequence(String) = 
+	step.postSnapshot.object->collect(name)->removeAll( step.preSnapshot.object->collect(name) )
+/]
+
+[comment]---------------------------------------------------------[/comment] 
+[comment]-- 3.1. Generate associations ---------------------------[/comment]
+[comment]---------------------------------------------------------[/comment]
+[template public genAssociation(frslModel : FrslModel) post(trim())]
+[for (associationClass: AssociationClass | frslModel.getAssocs()->reject(assoc | assoc.name = '_Tracks')) separator('\n')]
+association [associationClass.name/] between
+[let firstProperty: Property = associationClass.ownedProperties->at(1)]
+[let secondProperty: Property = associationClass.ownedProperties->at(2)]
+	[if (firstProperty.type.oclIsKindOf(CollectionType))][firstProperty.getCollectElemType().name/][else][firstProperty.type.name/][/if][firstProperty.getPropertyMultiplicity()/] role [firstProperty.name/]
+	[if (secondProperty.type.oclIsKindOf(CollectionType))][secondProperty.getCollectElemType().name/][else][secondProperty.type.name/][/if][secondProperty.getPropertyMultiplicity()/] role [secondProperty.name/]
+end
+[/let]
+[/let]
+[/for]
+[/template]
+
+[comment]---------------------------------------------------------[/comment] 
+[comment]-- 3.2. Generate associations for UC attributes ---------[/comment]
+[comment]---------------------------------------------------------[/comment]
+[template public genAssoc4UcAttrs(usecase : Usecase) post(trim())]
+[for (p: Property | usecase.getRefProps())]
+association [usecase.name/]_[p.name/] between
+[if (p.type.oclIsKindOf(CollectionType))]
+	[usecase.name/]['['/]0..1[']'/] role [usecase.name.toLowerFirst()/][p.name.toUpperFirst()/]
+	[p.getCollectElemType().name/]['['/]0..*[']'/] role [p.name/]
+[else]
+	[usecase.name/]['['/]0..1[']'/] role [usecase.name.toLowerFirst()/][p.name.toUpperFirst()/]
+	[p.type.name/]['['/]0..1[']'/] role [p.name/]
+[/if]
+end
+[/for]
+[/template]
+
+[comment]---------------------------------------------------------[/comment] 
+[comment]-- 4.1. Generate constraints for use cases---------------[/comment]
+[comment]---------------------------------------------------------[/comment]
+[template public genUsecaseConstraint(usecase: Usecase) post(trim())]
+-- context [usecase.name/] inv oneInstance: 
+[comment]
+{	
+		frslModel : FrslModel;
+		ucClass: Class = frslModel.getUsecaseClass(usecase.name);}
+	
+	[usecase.genUniquePropertyConstraint(frslModel)/] 
+	and [usecase.genAvailPropertyAmountConstraint(frslModel)/]
+[/comment]
+	-- [usecase.name/].allInstances()->size=1
+[comment] TODO: ???
+context [usecase.name/] inv usecaseConnectAll:
+[for (domClass : Class | usecase.getDomClass()) before ('\t') separator (' and\n\t')]
+[domClass.name/].allInstances->forAll( x | [for (p : Property | ucClass.getDomClassProps(domClass)) separator (' + ')]
+x.[usecase.name.toLowerFirst()/][p.name.toUpperFirst()/]->size()[/for] = 1)[/for]
+[/comment]	
+[/template]
+
+[comment]-------------------------------------------------------------[/comment] 
+[comment]-- 4.2. Generate constraints for operations----------- ------[/comment]
+[comment]-------------------------------------------------------------[/comment] 
+[template public genOperationConstraint(usecase : Usecase) post(trim()){
+	frslModel : FrslModel = usecase.eContainer(FrslModel);
+	ucClass: Class = frslModel.getUsecaseClass(usecase.name);}]
+[for (op : Operation | ucClass.ownedOperations) separator('\n')] 
+[if (not ( op.isUcPre() or op.isUcPost() ))]
+[let step: ActStep = op.getStep()] 
+context [usecase.name/]::[op.name/]()
+	-- constraints for the nextstep
+	[step.genStepConstraint()/]
+	-- constraints for the unchanged part
+	[step.genConstraint4UnchangedPart( step.getChangedObjVar(), step.getChangedProps())/]
+	[let str: String = step.preSnapshot.genPreSnapshotOCL()]
+	[if(str <> '')]
+	-- constraints for the preSnapshot
+	pre preSnapshot:
+		[step.preSnapshot.genPreSnapshotOCL()/]
+	[/if]
+	[/let]
+	[let str: String = step.genPostSnapshotOCL()]
+	[if(str <> '')]
+	-- constraints for the postSnapshot
+	post postSnapshot: 
+		[step.genPostSnapshotOCL()/]
+	[/if]
+	[/let]
+[/let]
+[/if]
+[/for]
+[/template]
+
+[query public getChangedObjVar(step: ActStep): Sequence(ObjVar) =
+	step.postSnapshot.constraint->iterate(constr; ret1: Sequence(ObjVar) = Sequence{} |
+		if( constr.ownedSpecification._body.toString().trim().startsWith('\'@changed')) then
+			ret1->union(
+				constr.ownedSpecification._body.tokenize('\'')->at(3).tokenize(';')->iterate(st; ret2: Sequence(ObjVar)=Sequence{} | 
+					if(st.tokenize('/{}')->size() > 0) then
+						ret2->including( step.postSnapshot.object->union(step.preSnapshot.object)
+							->select( name = st.tokenize('/{}')->at(1).trim() )->any(true) )
+					else
+						ret2
+					endif
+				)
+			)
+		else
+			ret1
+		endif 
+	) 
+/]
+
+[query public getChangedProps(step: ActStep): Sequence(Sequence(String)) =
+	step.postSnapshot.constraint->iterate(constr; ret1: Sequence(Sequence(String)) = Sequence{} |
+		if( constr.ownedSpecification._body.toString().trim().startsWith('\'@changed')) then
+			constr.ownedSpecification._body.tokenize('\'')->at(3).tokenize(';')->iterate(st; ret2: Sequence( Sequence(String) ) = Sequence{} | 
+				if(st.tokenize('/{}')->size() > 1) then
+					ret2->append( st.tokenize('/{}')->at(2).tokenize(',').trim() )
+				else
+					ret2
+				endif
+			)			
+		else
+			ret1
+		endif 
+	) 	
+/]
+
+[comment]-------------------------------------------------------------[/comment] 
+[comment]-- 4.2.1. Generate constraints to define next step-----------[/comment]
+[comment]-------------------------------------------------------------[/comment]
+[comment] curStep: String = 	 
+			if (step.eContainer().oclIsTypeOf(Usecase)) then //the first step of the usecase
+			else if(step.eContainer().oclIsTypeOf(AltFlow)) then //the first step of the altFlow			
+			else if (not step.rejoinFrom->isEmpty() ) then //the rejoinTo step of a RejoinStep
+			else if ( step.preStep.oclIsTypeOf(RejoinStep) ) then // the next step of a RejoinStep
+			else //the next step of curTrace->last()
+[/comment]  
+[template public genStepConstraint(step : ActStep) post(trim()){
+	preStepConstr: String =		
+		if (step.eContainer().oclIsTypeOf(Usecase)) then 
+			'curStep = \'s0\' and enter_'.concat(step.eContainer().oclAsType(Usecase).name).concat('()')
+		else if(step.eContainer().oclIsTypeOf(AltFlow)) then			
+			let altFlowCond: String = step.eContainer().oclAsType(AltFlow).condition.genPreSnapshotOCL(),
+				baseStep: Step = step.eContainer().oclAsType(AltFlow).baseStep
+			in
+				'let preStep: String = if ( '.concat(altFlowCond).concat(' ) then ')
+				.concat( if( baseStep.preStep = null) then '\'s0\'' else '\''.concat( baseStep.preStep.getStepId() ).concat('\'') endif)
+				.concat(' else ').concat( '\'null\' endif in\n\t' )
+					.concat('if (preStep = \'s0\') then curStep = \'s0\'\n\t')
+					.concat('else if (preStep = \'null\') then false \n\t')
+					.concat('else curStep = preStep endif endif')											
+		else if ( not step.rejoinFrom->isEmpty() ) then
+			'if ( curStep = \''.concat( step.preStep.getStepId() ).concat('\' ) then')
+					.concat('\n\t\ttrue\n\t')
+			.concat('else ')
+			.concat( 'let rejnStepIndex: RejnStep = '.concat( step.genGetRejoinSteps() ).concat('->any(rj: RejnStep | isValidRejnStep(rj) ) in\n\t\t') )
+					.concat('curStep = enum2String(rejnStepIndex) endif')
+		else if ( step.preStep.oclIsTypeOf(RejoinStep) ) then
+			let rS: RejoinStep = step.preStep.oclAsType(RejoinStep) in 
+				'not ('.concat( rS.condition.genPreSnapshotOCL() ).concat(') and curStep = \'').concat(rS.getStepId()).concat('\'')
+		else 
+			'curStep = '.concat('\'').concat( step.preStep.getStepId() ).concat('\'') 
+		endif endif endif endif;		
+}]
+pre preStep: 
+	[preStepConstr/] [if(step.isMatchingStep())]and matchedStep = 'match_[step.getStepId()/]'[/if]
+post nextStep: 
+	curStep = '[step.getStepId()/]'[comment]TODO: check if the final step is a rejoin step[/comment]
+	and matchedStep = 'match_null'
+	[if( step.isBasicFlow() and step.nextStep = null )]and exit_[step.getUsecase().name/]()[/if]
+[/template]
+
+[query public isBasicFlow(step : Step): Boolean = 
+	if(step.eContainer().oclIsTypeOf(Usecase)) then true
+	else if( (step.eContainer() = null) or (not step.eContainer().oclIsKindOf( Step ) ) ) then false	
+	else isBasicFlow( step.eContainer().oclAsType( Step ) )
+	endif endif
+/]
+
+[query public isMatchingStep(step: ActStep): Boolean = 
+	step.getMatchedObjVar()->size() > 0	
+/]
+
+[query public getMatchedObjVar(step: ActStep): Sequence(ObjVar) = 
+	step.preSnapshot.object->select(isMatched.toString() = true.toString())->asSequence()
+/]
+
+[query public isPrimitive(p: Property): Boolean = 
+	p.type.oclIsKindOf(PrimitiveType)
+/]
+
+[query public isPrimitiveSet(p: Property): Boolean = 
+	p.isMany and (p.getCollectElemType().eClass().name = 'PrimitiveType') 
+/]
+
+[comment]-----------------------------------------------------------------------------------[/comment] 
+[comment]-- 4.2.2. Generate constraints for the preSnapshot of the step --------------------[/comment]
+[comment]-----------------------------------------------------------------------------------[/comment]
+[template private genPreSnapshotOCL(snapshot: SnapshotPattern) post(trim())]
+[let andStr1: String = if( snapshot.genPreObjVarOCL()->size() = 0 ) then '' else 'and ' endif]
+[let andStr2: String = if( snapshot.genLinkOCL()->size() = 0 ) then '' else 'and ' endif]	
+[let andStr3: String = if(andStr1 = '' and andStr2 = '') then '' else 'and ' endif]	
+[if(andStr1 <> '')]
+[snapshot.genPreObjVarOCL()->sep(' and ')->toString()/]
+[/if]
+[if(andStr2 <> '')]
+[andStr1/][snapshot.genLinkOCL()->sep(' and ')->toString()/]
+[/if]
+[for (oclConstraint : Constraint | snapshot.constraint) before(andStr3) separator('and ')]
+([oclConstraint.oclCompile()/])
+[/for]
+[/let]
+[/let]
+[/let]
+[/template]
+
+[comment]--------------------------------------------------------------------------------------[/comment] 
+[comment]-- 4.2.2.1 Get OCL conditions for objVars of the presnapshot -------------------------[/comment]
+[comment]--------------------------------------------------------------------------------------[/comment]
+[query public genPreObjVarOCL(snapshot: SnapshotPattern): Set(String) = 
+	snapshot.object->iterate (objVar:ObjVar; ret: Set(String) = Set{} | 
+		if(( objVar.isMatched.toString() = true.toString() ) and (not objVar.type.oclAsType(Property).type.oclIsKindOf(CollectionType)) ) then
+			ret->including('(not ' + objVar.name + '.oclIsUndefined())')
+		else
+			ret
+		endif
+	)
+/]
+
+[comment]--------------------------------------------------------------------------------------[/comment] 
+[comment]-- 4.2.2.2 Get OCL conditions for links of a snapshot --------------------------------[/comment]
+[comment]--------------------------------------------------------------------------------------[/comment]
+[query public genLinkOCL(snapshot: SnapshotPattern): Set(String) = 
+	snapshot.link->iterate(varLink; ret: Set(String) = Set{} |
+		let assocCls: AssociationClass = varLink.assoc.oclAsType(AssociationClass) in
+		if ( varLink.isNeg and assocCls.name <> '_Tracks') then
+			if(assocCls.ownedProperties->at(2).isMany) then
+				ret->including( varLink.objVar->at(1).name + '.' + varLink.objVar->at(2).name + '->excludes(' + varLink.objVar->at(2).name + ')')  
+			else
+				ret->including( varLink.objVar->at(1).name + '.' + varLink.objVar->at(2).name + '.oclIsUndefined()' )
+			endif
+		else 
+			if(assocCls.name <> '_Tracks') then
+				if(assocCls.ownedProperties->at(2).isMany) then
+					ret->including( varLink.objVar->at(1).name + '.' + varLink.objVar->at(2).name + '->includes(' + varLink.objVar->at(2).name + ')' ) 
+				else
+					ret->including( varLink.objVar->at(1).name + '.' +  varLink.objVar->at(2).name + ' = ' + varLink.objVar->at(2).name )
+				endif
+			else
+				ret
+			endif
+		endif
+	)
+/]
+
+[comment]--------------------------------------------------------------------------------------[/comment] 
+[comment]-- 4.2.3. Generate constraints for the postSnapshot of the step ----------------------[/comment]
+[comment]--------------------------------------------------------------------------------------[/comment]
+[template private genPostSnapshotOCL(step: ActStep) post(trim())]
+[let andStr1: String = if( step.genPostObjVarOCL()->size() = 0 ) then '' else 'and ' endif]
+[let andStr2: String = if( step.postSnapshot.genLinkOCL()->size() = 0 ) then '' else 'and ' endif]	
+[let andStr3: String = if(andStr1 = '' and andStr2 = '') then '' else 'and ' endif]	
+[if(andStr1 <> '')]
+[step.genPostObjVarOCL()->sep(' and ')->toString()/]
+[/if]
+[if(andStr2 <> '')]
+[andStr1/][step.postSnapshot.genLinkOCL()->sep(' and ')->toString()/]
+[/if]
+[for (oclConstraint : Constraint | step.postSnapshot.constraint->select(oclCompile()<>'')) before(andStr3) separator('and ')]
+([oclConstraint.oclCompile()/])
+[/for]
+[/let]
+[/let]
+[/let]
+[/template]
+
+[comment]--------------------------------------------------------------------------------------[/comment] 
+[comment]-- 4.2.3.1 Generate OCL conditions for objVars of the postSnapshot -------------------[/comment]
+[comment]--------------------------------------------------------------------------------------[/comment]
+[query public genPostObjVarOCL(step: ActStep): Set(String) = 
+	let unchangedObjVarConstr: Set(String) = 
+		step.postSnapshot.object->collect(name)->asSet()
+		->intersection(	step.preSnapshot.object->collect(name)->asSet() )
+		->iterate ( objVarName; ret: Set(String) = Set{} |
+			let objVar: ObjVar = step.postSnapshot.object->select(name = objVarName)->any(true) in
+			let prop:Property = objVar.type.oclAsType(Property) in
+			if ( (not prop.isMany) and (prop.type.oclIsKindOf(PrimitiveType).toString() = false.toString()) ) then
+				ret->including( prop.type.name
+					+ '.allInstances()->includes(' + objVarName + ')')  
+			else
+				ret
+			endif ) in			
+	let delObjVarConstr: Set(String) = 
+		step.preSnapshot.object->collect(name)
+		->removeAll( step.postSnapshot.object->collect(name) )
+		->iterate (objVarName; ret: Set(String) = Set{} | 
+			let objVar: ObjVar = step.preSnapshot.object->select(name = objVarName)->any(true) in
+			let prop:Property = objVar.type.oclAsType(Property) in
+				if( (not prop.type.oclIsKindOf(PrimitiveType)) and (not prop.isMany) ) then 
+					ret->including( prop.type.name
+						+ '.allInstances()->excludes(' + objVarName + ')' + (prop.type.oclIsKindOf(PrimitiveType)) + (prop.isMany) )
+				else
+					ret
+				endif
+		) in
+	let newObjVarConstr: Set(String) = 
+		step.postSnapshot.object
+		->select(o: ObjVar | not o.isOutputVar())
+		->collect(name)->asSet()
+		->removeAll(	step.preSnapshot.object->collect(name)->asSet() )
+		->iterate (objVarName; ret: Set(String) = Set{} |
+			let objVar: ObjVar = step.postSnapshot.object->select(name = objVarName)->any(true) in
+			let prop:Property = objVar.type.oclAsType(Property) in
+				let objConstr: String = 
+					if(not prop.ownedExpression.oclIsUndefined()) then
+						' and ' + objVar.name + '=' + prop.ownedExpression._body
+					else
+						''
+					endif
+				in 				
+				if( prop.isPrimitive() ) then
+					ret->including('not ' + objVarName + '.oclIsUndefined()' + objConstr)
+				else if( prop.isMany ) then
+					ret->including('not ' + objVarName + '->isEmpty()' + objConstr)
+				else
+					ret->including( objVarName + '.oclIsNew()' + objConstr) 
+				endif endif 
+		) in	
+	unchangedObjVarConstr->union( delObjVarConstr->union(newObjVarConstr) )	
+/]
+
+[query public isOutputVar(objVar: ObjVar): Boolean = 
+	if ( objVar.eContainer().eContainer().oclIsKindOf(ActStep)) then
+		objVar.eContainer().eContainer().oclAsType(ActStep).action->exists(objVars->exists(obj | obj = objVar) )
+	else
+		false
+	endif
+/]
+
+[comment]TODO: for the case @pre within the ucPostcondition[/comment]
+[query public oclCompile(oclConstr: Constraint): String = 
+	if( oclConstr.ownedSpecification._body.strstr('@oclCompile') ) then
+		oclConstr.ownedSpecification._body.tokenize('\'')->at(3)
+	else if( oclConstr.ownedSpecification._body.strstr('@changed') ) then
+		''
+	else if( oclConstr.eContainer().toString().strstr('exit_') and oclConstr.ownedSpecification._body.strstr('@pre') ) then
+		'true'
+	else
+		oclConstr.ownedSpecification._body
+	endif endif endif
+/]
+
+[comment]---------------------------------------------------------[/comment]
+[comment]-- 5.1. Generate the Property file for use-validator ----[/comment]
+[comment]---------------------------------------------------------[/comment]
+[template public genPropertiesFile4UseValidator(usecase : Usecase)]
+[file (usecase.name + '.filmstrip.properties', false, 'UTF-8')]
+[for( curTrace: Sequence(Step) | usecase.firstStep.getAllTraces( Set{}, Sequence{}, Bag{}, '1') )]
+--===================================================================
+['['/]scenario [i/]: [curTrace->collect(s: Step | s.getStepId())->sep('->')/][']'/]
+--===================================================================
+Integer_min = 1
+Integer_max = 10
+
+String_max = 10
+
+Real_min = -2.0
+Real_max = 2.0
+Real_step = 0.5
+-------------------------------------------------------------
+------------ Usecase Class ----------------------------------
+-------------------------------------------------------------
+[usecase.genUsecasePropBoundary(curTrace)/]
+-------------------------------------------------------------
+--- DomainClass, SnapshotAssociation, PredSuccAssociation ---
+-------------------------------------------------------------
+[usecase.genDomClassPropBoundary(numberOfTransition(curTrace))/]
+-------------------------------------------------------------
+---------------- Snapshot & Filmstrip & OpClass -------------
+-------------------------------------------------------------
+[usecase.genFilmstripPropBoundary(curTrace)/]
+-------------------------------------------------------------
+------------------- Model Association -----------------------
+-------------------------------------------------------------
+[usecase.genAssocPropBoundary()/]
+[/for]
+-------------------------------------------------------------
+aggregationcyclefreeness = on
+forbiddensharing = on
+-------------------------------------------------------------
+[/file]
+[/template]
+
+[comment]-------------------------------------------------------------------[/comment]
+[comment]-- 5.1.1. Get all traces that contains current step ---------------[/comment]
+[comment]-- a rejoin step occurs in the trace at last maxLoop time ---------[/comment]
+[comment]-------------------------------------------------------------------[/comment]
+[query public  getAllTraces(curStep : Step, allTraces: Set(Sequence(Step)), curTrace : Sequence(Step), visitedRjnSteps: Bag(Step), maxLoop: String ): Set( Sequence(Step) ) =
+	if (curStep.oclIsUndefined()) then
+		allTraces->including(curTrace)
+	else if ( not curStep.altFlow->isEmpty() ) then
+		getAllTraces(curStep.nextStep, allTraces, curTrace->append(curStep), visitedRjnSteps, maxLoop )
+		->union( 
+				let traces: Sequence(Set(Sequence(Step))) = 
+				curStep.altFlow->collectNested( f: AltFlow | f.altStep.getAllTraces ( 
+							Set{}, curTrace, visitedRjnSteps, maxLoop ) 
+				) in
+				traces->iterate( e; ret: Set(Sequence(Step)) = Set{} | ret->union(e) )
+		)
+	else if ( curStep.oclIsTypeOf(RejoinStep) and ( visitedRjnSteps->collect(curStep)->size() < maxLoop.toInteger() ) ) then
+		let rjnStep: RejoinStep = curStep.oclAsType(RejoinStep) in  
+		getAllTraces(rjnStep.nextStep, allTraces, curTrace->append(rjnStep), visitedRjnSteps, maxLoop )
+		->union( rjnStep.rejoinTo.getAllTraces( Set{}, curTrace->append(curStep), visitedRjnSteps->including(rjnStep), maxLoop ) )
+	else
+		getAllTraces(curStep.nextStep, allTraces, curTrace->append(curStep), visitedRjnSteps, maxLoop)
+	endif endif	endif
+/]
+[comment]-------------------------------------------------------------------------[/comment]
+[comment]-- 5.1.2. Generate boundary values for current use case -----------------[/comment]
+[comment]-------------------------------------------------------------------------[/comment]
+[template public genUsecasePropBoundary(usecase: Usecase, curTrace: Sequence(Step)) post(trim()){
+	frslModel : FrslModel = usecase.eContainer(FrslModel);
+	numberOfTransition : String = numberOfTransition(curTrace);
+}]
+[usecase.name/]_min = [numberOfTransition.add('1')/]
+[usecase.name/]_max = [numberOfTransition.add('1')/]
+[comment][usecase.name/] = Set{[numberOfTransition.add('1')/]}[/comment]
+
+[usecase.name/]_curStep = Set{'s0',[for (step : Step | curTrace) separator (',')]'[step.getStepId()/]'[/for]}
+
+Snapshot[usecase.name/]_min = [numberOfTransition.add('1')/]
+Snapshot[usecase.name/]_max = [numberOfTransition.add('1')/]
+
+PredSucc[usecase.name/]_min = [numberOfTransition/]
+PredSucc[usecase.name/]_max = [numberOfTransition/]
+
+[for (p: Property | usecase.getRefProps()) separator ('\n')]
+[usecase.name/]_[p.name/]_min = [numberOfTransition.add('1')/]
+[usecase.name/]_[p.name/]_max = [numberOfTransition.add('1')/]
+[/for]
+[/template]
+
+[comment]-------------------------------------------------------------------------[/comment]
+[comment]-- 5.1.3. Generate boundary values for domain classes -------------------[/comment]
+[comment]-------------------------------------------------------------------------[/comment]
+[template public genDomClassPropBoundary(usecase: Usecase, numberOfTransition : String) post(trim()){	
+	frslModel : FrslModel = usecase.eContainer(FrslModel);
+	ucClass: Class = frslModel.getUsecaseClass(usecase.name);
+}]
+[for (c : Class | frslModel.getDomClass()) separator ('\n')]
+------ [c.name/]
+[if (usecase.getDomClass()->includes(c))]
+[let num : String = ucClass.getDomClassProps(c)->size().toString()]
+[c.name/]_min = [num.mul(numberOfTransition.add('1'))/]
+[c.name/]_max = [num.mul(numberOfTransition.add('1'))/]
+
+Snapshot[c.name/]_min = [num.mul(numberOfTransition.add('1'))/]
+Snapshot[c.name/]_max = [num.mul(numberOfTransition.add('1'))/]
+
+PredSucc[c.name/]_min = [num.mul(numberOfTransition)/]
+PredSucc[c.name/]_max = [num.mul(numberOfTransition)/]
+[/let]
+[else]
+[c.name/]_min = 0
+[c.name/]_max = 0
+
+Snapshot[c.name/]_min = 0
+Snapshot[c.name/]_max = 0
+
+PredSucc[c.name/]_min = 0
+PredSucc[c.name/]_max = 0
+[/if]
+
+[for(p: Property | c.ownedProperties)]
+[if(p.isPrimitive() or p.isPrimitiveSet())]
+[c.name/]_[p.name/]_min = -1
+[c.name/]_[p.name/]_max = -1
+[/if]
+[comment][if (p.type.oclIsKindOf(CollectionType) and p.getCollectElemType().eClass().name = 'PrimitiveType')]
+[c.name/]_[p.name/]_min = -1
+[c.name/]_[p.name/]_max = -1
+[elseif(p.type.eClass().name = 'PrimitiveType') ]
+[c.name/]_[p.name/]_min = -1
+[c.name/]_[p.name/]_max = -1
+[/if][/comment]
+[/for][/for]
+[/template]
+
+[comment]-------------------------------------------------------------------------[/comment]
+[comment]-- 5.1.4. Generate boundary values for associations ---------------------[/comment]
+[comment]-------------------------------------------------------------------------[/comment]
+[template public genAssocPropBoundary(usecase: Usecase) {	
+	frslModel: FrslModel = usecase.eContainer(FrslModel);
+}]
+[for (assocClass : AssociationClass | frslModel.getAssocs()) separator ('\n')]
+[assocClass.name/]_min = 0
+[if (usecase.getAssocs()->includes(assocClass))]
+[assocClass.name/]_max = -1
+[else]
+[assocClass.name/]_max = 0
+[/if]
+[/for]	
+[/template]
+
+[comment]-------------------------------------------------------------------------[/comment]
+[comment]-- 5.1.5. Generate boundary values for filmstrip classes ----------------[/comment]
+[comment]-------------------------------------------------------------------------[/comment]
+[template public genFilmstripPropBoundary(usecase: Usecase, curTrace: Sequence(Step) ) post(trim()){
+	numberOfTransition : String = numberOfTransition(curTrace);
+}]
+------ Snapshot
+Snapshot_min = [numberOfTransition.add('1')/]
+Snapshot_max = [numberOfTransition.add('1')/]
+
+------ Filmstrip
+Filmstrip_min = [numberOfTransition/]
+Filmstrip_max = [numberOfTransition/]
+
+------ Operation Calls
+[for (step : Step | curTrace->asSet()- curTrace->asSet()->select(s | s.name = 's0') )]
+[step.getStepId()/]_[usecase.name/]OpC_min = 1
+[step.getStepId()/]_[usecase.name/]OpC_max = 1
+[if(step.oclIsKindOf(ActStep) and step.oclAsType(ActStep).isMatchingStep())]
+match_[step.getStepId()/]_[usecase.name/]OpC_min = 1
+match_[step.getStepId()/]_[usecase.name/]OpC_max = 1
+[/if]
+[/for]
+[for (step : Step | usecase.getSteps()->asSet() - curTrace->asSet())]
+[step.getStepId()/]_[usecase.name/]OpC_min = 0
+[step.getStepId()/]_[usecase.name/]OpC_max = 0
+[if(step.oclIsKindOf(ActStep) and step.oclAsType(ActStep).isMatchingStep())]
+match_[step.getStepId()/]_[usecase.name/]OpC_min = 0
+match_[step.getStepId()/]_[usecase.name/]OpC_max = 0
+[/if]
+[/for]
+[/template]
+
+[query public numberOfTransition(curTrace:Sequence(Step)):String =
+	let numberOfMatchedStep: String = curTrace->select(oclIsKindOf(ActStep) and oclAsType(ActStep).isMatchingStep())->size().toString() in
+	curTrace->size().toString().add( numberOfMatchedStep )
+/]
+
+[template private genUniquePropertyConstraint(usecase : Class, frslModel : FrslModel)]
+Bag{[usecase.ownedProperties->select(c | 
+	frslModel.getDomClass()->includes(c.type))
+	->collect(c | c.name)->sep(',')/]}->isUnique(p|p)
+[/template]
+
+[comment]TODO: check it![/comment]
+[template private genAvailPropertyAmountConstraint(usecase : Class, frslModel : FrslModel)]
+Bag{[usecase.ownedProperties->select(c | 
+	frslModel.getDomClass()->includes(c.type))
+	->collect(c | c.name)->sep(',')/]}->size=[for (t: Type | usecase.ownedProperties->select(c | 
+	frslModel.getDomClass()->includes(c.type))->collect(p | p.type)->asSet()) separator(' + ')]
+[t.name/].allInstances()->size[/for]
+[/template]
+
+[comment]FIXME:aFrslModel.ownedPackages->any(p | p.name='usecase').ownedClasses->any(c | c.name = usecaseName)[/comment]
+[query public getUsecaseClass(aFrslModel : FrslModel, usecaseName : String) : Class =  
+	Package.allInstances()->any(p | p.eContainer().oclIsTypeOf(FrslModel) and p.name='usecase').ownedClasses->any(c | c.name = usecaseName)/]
+
+[comment]FIXME: aFrslModel.ownedPackages->any(p | p.name <> 'usecase' and p.name <> '$$')/][/comment]
+[query public getDomModel(aFrslModel : FrslModel): Package =
+	 Package.allInstances()->any(p | p.eContainer().oclIsTypeOf(FrslModel) and p.name <> 'usecase' and p.name <> '$$')/]
+	
+
+[query public getDomClass(aFrslModel : FrslModel) : Set(Class) = 
+	aFrslModel.getDomModel().ownedClasses->select(c | c.oclIsTypeOf(Class) and c.name <> '_DomainClass')->asSet()/]
+
+[comment]Get Model class of usecase[/comment]
+[query public getDomClass(usecase: Usecase) : Set(Class) =
+	let  frslModel: FrslModel = usecase.eContainer(FrslModel) in
+	frslModel.getUsecaseClass(usecase.name).getPropTypes()->intersection(frslModel.getDomClass()) /]
+
+[comment]A reference property of usecase is a property that realizes the association, i.e., an assoc end[/comment]
+[query public getRefProps(usecase: Usecase) : Set(Property) =
+	let frslModel: FrslModel = usecase.eContainer(FrslModel) in 
+	frslModel.getUsecaseClass(usecase.name).ownedProperties->select(p | 
+		if (p.type.oclIsKindOf(CollectionType)) then
+			usecase.getDomClass()->includes( p.getCollectElemType() )
+ 		else
+			usecase.getDomClass()->includes(p.type) or p.name.startsWith('includedUC_')
+		endif
+	)/]
+
+[query public getDomClassProps(usecase : Class, domClass : Class) : Set(Property) = 
+	usecase.ownedProperties->select(p | 
+	if (p.type.oclIsKindOf(CollectionType)) then
+		p.getCollectElemType() = domClass
+ 	else
+		p.type = domClass
+	endif)->asSet()/]
+
+
+[query public getPropTypes(usecase : Class) : Set(Class) = 
+	usecase.ownedProperties->collect(p: Property | 
+	if (p.type.oclIsKindOf(CollectionType)) then
+		p.getCollectElemType()
+ 	else
+		p.type
+	endif)->asSet()/]
+
+[query public getPropertyMultiplicity(p : Property) : String = 
+	if (p.type.oclIsKindOf(CollectionType)) then
+		'[0..*]'
+ 	else
+		if (p.isRequired) then
+			'[1]'
+		else
+			'[0..1]'
+		endif
+	endif
+ /]
+
+[query public getCollectElemType(p : Property) : Type = 
+	if ( p.type.oclIsKindOf(CollectionType) ) then
+		p.type.oclAsType(CollectionType).ownedBindings.ownedSubstitutions.actual->any(true)		
+	else
+		null
+	endif
+/]
+
+[query public getSteps(usecase: Usecase) : Sequence(Step) = 
+	usecase.eAllContents(Step)->asSequence()
+/]
+
+[template private  genGetRejoinSteps(step: Step) post(replaceAll('\n', '').trim())]	
+	Set{ [for(st: String | step.rejoinFrom->collect( getStepId() ) ) separator(',')]#[st/][/for] }
+[/template]
+
+[query public getAssocs(usecase: Usecase) : Set(AssociationClass) = 
+	usecase.eAllContents(VarLink)->collect(v: VarLink | v.assoc.oclAsType(AssociationClass))->select(a: AssociationClass | a.name<>'_Tracks')->asSet() /]
+
+[query public getVarLinkFromUsecase(usecaseEntity : Usecase) : Sequence(VarLink) = 
+	usecaseEntity.eAllContents(VarLink) /]
+
+[query public getAssocs(frslModel: FrslModel) : Set(AssociationClass) =
+	let domModel: Package = frslModel.getDomModel() in 
+		domModel.ownedClasses->select(c: Class | c.oclIsTypeOf(AssociationClass) and c.name <> '_Tracks') /]
+
+
+[comment]----------Constraint[/comment]
+[comment]Get obj name in VarLink like customer in (customer, ticket): CustomerTicket[/comment]
+[query public getObjInVarLinkFromSnapshot(snap : SnapshotPattern) : Set(ObjVar) =  
+	snap.link->collect(v: VarLink | v.objVar)->asSet()
+/]
+[comment][query public getObjInOCLFromSnapshot(snap : SnapshotPattern, isPre : Boolean) : Set(PropertyCallExp) = 
+	snap.constraint->select(c: Constraint | if (isPre=true) then c.->forAll(o: ObjVar | o.isMatched=true) else true endif)
+		->collect(c: Constraint | if c.eAllContents(PropertyCallExp)->first().ownedSource.oclIsTypeOf(PropertyCallExp) 
+		then c.eAllContents(PropertyCallExp)->first().ownedSource else c.eAllContents(PropertyCallExp)->first() endif)->asSet()
+/][/comment]
+
+[comment]Get obj name in OCL like customer in [customer.money>10][/comment]
+[query public getObjInOCLFromSnapshot(snap : SnapshotPattern) : Set(PropertyCallExp) = 
+	snap.constraint->collect(c |
+	 	let tmp:PropertyCallExp = c.eAllContents(PropertyCallExp)->first() in 
+		if tmp.ownedSource.oclIsTypeOf(PropertyCallExp) then 
+			tmp.ownedSource.oclAsType(PropertyCallExp)
+		else 
+			 tmp
+		endif
+	)->asSet()
+/]
+
+[query public getAllNextStep(step : Step) : Sequence(Step) = 
+	if (step.nextStep.oclIsUndefined()) then
+		Sequence(Step){}
+	else
+		step.altFlow->collect(f: AltFlow | f.altStep)->append(step.nextStep)
+	endif
+/]
+
+[query public getObjNameAllFromStep(step : ActStep) : Set(String) = 
+	step.preSnapshot.object->union(step.postSnapshot.object)->collect(objVar|objVar.name)->asSet()
+/]
+
+[query public getPropClass(usecase: Usecase, propName : String) : Class = 
+	let aFrslModel: FrslModel = usecase.eContainer(FrslModel) in
+	usecase.getRefProps()->select(p: Property | p.name = propName)->any(true).type
+/]
+
+[comment]Get attr of Domain Class!!! Need to change its name[/comment]
+[query public getAllOneProps(modelClass : Class) : Set(Property) = 
+	modelClass.ownedProperties->select(p: Property | not p.type.oclIsKindOf(CollectionType))
+/]
+
+[comment]Get modify attr of obj from OCL in pre/post snapshot[/comment]
+[query public getAttrInOCLOfModelClass(snap : SnapshotPattern, modelClassRoleName : String) : Set(String) =
+	snap.getObjInOCLFromSnapshot()->select(p: PropertyCallExp | p.name=modelClassRoleName)->collect(p: PropertyCallExp | p.eContainer().oclAsType(PropertyCallExp).name)->asSet()
+/]
+
+[comment]Get modify attr of obj from VarLink in pre/post snapshot[/comment]
+[query public getAttrInVarLinkOfModelClass(snap : SnapshotPattern, modelClassRoleName : String) : Set(String) = 
+	snap.getObjInVarLinkFromSnapshot()->select(o: ObjVar | o.name=modelClassRoleName)->collect(o | o.siblings(ObjVar)->first().name)->asSet()
+/]
+
+[comment]Get modify attr of obj from OCL in pre/post snapshot[/comment]
+[query public getAttrAllInModelClassFromSnap(snap : SnapshotPattern, modelClassRoleName : String) : Set(String) = 
+	snap.getAttrInOCLOfModelClass(modelClassRoleName)->addAll(snap.getAttrInVarLinkOfModelClass(modelClassRoleName))
+/]
+
+[query public getAttrAllInDomainClassFromStep(step : Step, modelClassRoleName : String) : Set(String) = 
+	step.getAllNextStep()->collect(s | s.oclAsType(ActStep).preSnapshot.getAttrAllInModelClassFromSnap(modelClassRoleName))->asSet()
+		->union(step.oclAsType(ActStep).postSnapshot.getAttrAllInModelClassFromSnap(modelClassRoleName))
+/]
+
+[query public isUcPre(op: Operation): Boolean =
+	op.name.startsWith('enter_')
+/]
+
+[query public isUcPost(op: Operation): Boolean =
+	op.name.startsWith('exit_')
+/]
+
+[query public getStep(op: Operation): ActStep =
+	let ucClass: Class = op.eContainer(Class),
+		frslModel: FrslModel = ucClass.eContainer(Package).eContainer(FrslModel),
+		usecase: Usecase = frslModel.usecase->any(name = ucClass.name) in
+		usecase.getSteps()->any( name.startsWith(op.name) )				
+/]
+
+[query public getOperation(step: ActStep): Operation =
+	let usecase: Usecase = step.getUsecase(),
+		frslModel: FrslModel = usecase.eContainer(FrslModel),
+		ucClass: Class = frslModel.getUsecaseClass(usecase.name) 
+	in
+		ucClass.ownedOperations->any(step.name.startsWith(name))
+/]
+
+[query public getOperation(altFlow: AltFlow): Operation =
+	let usecase: Usecase = altFlow.baseStep.getUsecase(),
+		frslModel: FrslModel = usecase.eContainer(FrslModel),
+		ucClass: Class = frslModel.getUsecaseClass(usecase.name) 
+	in
+		ucClass.ownedOperations->any(altFlow.name.startsWith(name))
+/]
+
+[query public getUsecase(step:Step): Usecase =
+	let firstStep: Step = step.getFirstStep() in
+		if( firstStep.eContainer().oclIsTypeOf(Usecase) ) then 
+			firstStep.eContainer().oclAsType(Usecase)
+		else if ( firstStep.eContainer().oclIsTypeOf(AltFlow) ) then 
+			firstStep.eContainer().oclAsType(AltFlow).baseStep.getUsecase()
+		else
+			null 
+		endif endif
+/]
+
+[query public getFirstStep(step:Step): Step =
+	if ( step.preStep.oclIsUndefined() ) then step
+	else step.preStep.getFirstStep() endif
+/]
+
+[query public getStepId(step:Step): String =
+	step.name.first( step.name.index(':') - 1)
+/]
+
+[query public add(arg1 : String, arg2 : String) : String = (arg1.toInteger() + arg2.toInteger()).toString() /]
+
+[query public sub(arg1 : String, arg2 : String) : String = (arg1.toInteger() - arg2.toInteger()).toString() /]
+
+[query public mul(arg1 : String, arg2 : String) : String = (arg1.toInteger() * arg2.toInteger()).toString() /]
