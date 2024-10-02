@@ -30,7 +30,7 @@
 
 ### Step 2. Generating the filmstrip model (USE/Filmstrip)
 - Install the USE tool: https://github.com/useocl/use.
-- Replace two files `filmstrip-7.1.1.jar` and `validator-7.1.1.jar` in the folder `/examples/org.eclipse.sme.frsl2filmstrip.examples/USE-plugins/` with the corresponding files for the USE plugins (Filmstrip and Model Validator) located in the folder `use-7.1.1/lib/plugins`.
+- Replace the files for the USE plugins (Filmstrip and Model Validator) located in the folder `use-7.1.1/lib/plugins` with the two files `filmstrip-7.1.1.jar` and `validator-7.1.1.jar` in the folder `/examples/org.eclipse.sme.frsl2filmstrip.examples/USE-plugins/`.
 - Load the application model corresponding to the generated .use file from Step 1.
 - Invoke the USE Filmstrip plugin by selecting the menu item `Plugins -> Filmstrip`, indicated by a film-like icon.
 - Save the .use file for the Filmstrip model that was generated from the application model.
