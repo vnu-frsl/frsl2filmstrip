@@ -29,7 +29,43 @@ You can use the provided files in this folder to evaluate this example.
 
 ### Step 2. Generating the filmstrip model (USE/Filmstrip)
 
-- TODO!
+- Run the tool USE:
+  - Navigate to `<USE_folder>/use-assembly/target/use-7.1.1/bin`.
+  - On Windows: run the `use.bat` file.
+  - On Linux: open terminal and run the command `./use`.
+- First, we have to load the source model. In this example, the source model is specified in `PurchaseProduct.use` that we just generated:
+
+![Load source model](./images/1_loadSourceModel.png)
+
+- Choose `PurchaseProduct.use`.
+
+![Load source model window](./images/2_choose_Model.png)
+
+A successful model load should look like this:
+
+![Successful model load](./images/3_successfulModelLoad.png)
+
+- Invoke the filmstrip plugin by selecting the menu item `Plugins -> Filmstrip`.
+
+![Invoke filmstrip plugin](./images/4_invokeFilmstripPlugin.png)
+
+- Save the .use file for Filmstrip model:
+
+  - Hit `Select` to specify a save file.
+
+![transformation options](./images/5_transformationOptions.png)
+
+  - You do not have to select a file, just write the file name that you want. In this case, we will name it `PurchaseProductFilmstrip.use` and hit `Save`.
+
+![naming file](./images/6_namingFile.png)
+
+  - Hit `Ok` to start the transformation process.
+
+![hit ok](./images/7_hitOk.png)
+
+  - If the transformation is successful, it should show a window like this:
+
+![successful window](./images/8_success.png)
 
 ### Step 3. Generating Test Cases by Model Finding (USE/Model Validator)
 
