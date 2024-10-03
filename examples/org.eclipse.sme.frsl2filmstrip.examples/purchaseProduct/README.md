@@ -39,7 +39,7 @@ You can use the provided files in this folder to evaluate this example.
 
 - Choose `PurchaseProduct.use`.
 
-![Load source model window](./images/2_choose_Model.png)
+![Load source model window](./images/2_chooseModel.png)
 
 A successful model load should look like this:
 
