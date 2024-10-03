@@ -35,9 +35,11 @@ You can use the provided files in this folder to evaluate this example.
   - On Linux: open terminal and run the command `./use`.
 - First, we have to load the source model. In this example, the source model is specified in `PurchaseProduct.use` that we just generated:
 
+  - Select `Open specification` button under `File` menu or you can use `Open specification` button right in the toolbar.
+
 ![Load source model](./images/1_loadSourceModel.png)
 
-- Choose `PurchaseProduct.use`.
+  - Choose `PurchaseProduct.use`.
 
 ![Load source model window](./images/2_chooseModel.png)
 
