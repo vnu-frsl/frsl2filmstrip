@@ -71,4 +71,36 @@ A successful model load should look like this:
 
 ### Step 3. Generating Test Cases by Model Finding (USE/Model Validator)
 
-- TODO!
+# KSE_2024_Draft
+
+Generating Test Cases by Model Finding (USE/Model Validator
+
+As you successfully go through Step 2, you will obtain a filmstrip model file `PurchaseProductFilmstrip.use`. 
+
+- Open the `PurchaseProductFilmstrip.use` file. It will be loaded as in the below image.
+
+![PurchaseProductFilmstrip.use](images/purchaseProductFilmstrip_open.png)
+
+- Select `Configuration` under `Plugin > Model Validator`.
+
+![Selecting `Configuration`](images/Selecting_Configuration.png)
+
+- A Configuration window should appear like this:
+
+![`Configuration` window](images/Config_window.png)
+
+- Load the properties file (the `.properties` file) automatically generated along with the filmstrip model in Step 1 by selecting `File > Open`, then navigate to where the properties file is.
+![Loading properties file](images/Loading_property.png)
+
+- Choose a scenario (which corresponds to a search configuration) you want to generate test case for.  Once the configuration is loaded, you can update the configuration or add other constraints as needed before generating test data for the chosen scenario.
+
+![Choosing a scenario to generate test case for](images/Choosing_scenarios.png)
+
+- Hit the `Validate` button at the bottom-left corner of the configuration window to let the USE Model Validator find an approriate test case. This process may take some time. After that, the result will be shown in the Log window at the bottom of the USE window. 
+  - In our example, the result is `SATISFIABLE`, which means that the Model Validator is able to find a test case for the chosen scenario. On the other hand, if the plugin failed to find a test case for the chosen scenario, the result `UNSATISFIABLE` will be shown in the Log.
+
+![Showing results](images/Results.png)
+
+- You can then select `View > Object diagram` to have a view of the object model corresponding to the test case the USE Model Validator generate. Below is a part of the test case generated in our example.
+
+![Part of test case](images/part_of_scenario.png)
