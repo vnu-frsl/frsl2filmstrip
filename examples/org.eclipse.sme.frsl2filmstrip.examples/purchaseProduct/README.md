@@ -71,8 +71,6 @@ A successful model load should look like this:
 
 ### Step 3. Generating Test Cases by Model Finding (USE/Model Validator)
 
-# KSE_2024_Draft
-
 Generating Test Cases by Model Finding (USE/Model Validator
 
 As you successfully go through Step 2, you will obtain a filmstrip model file `PurchaseProductFilmstrip.use`. 
