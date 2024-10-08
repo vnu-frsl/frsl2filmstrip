@@ -47,5 +47,4 @@
 
 ### Examples
 
-- An example for the case study `purchaseProduct` is available [here](examples/org.eclipse.sme.frsl2filmstrip.examples
-/purchaseProduct/README.md)
+- An example for the case study `purchaseProduct` is available [here](examples/org.eclipse.sme.frsl2filmstrip.examples/purchaseProduct/README.md).
