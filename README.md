@@ -44,3 +44,8 @@
 
 - Using the USE model validator plugin to load the configuration (after manually tuning the bound constraints).
 - Performing test cases generation by model finding.
+
+### Examples
+
+- An example for the case study `purchaseProduct` is available [here](examples/org.eclipse.sme.frsl2filmstrip.examples
+/purchaseProduct/README.md)
