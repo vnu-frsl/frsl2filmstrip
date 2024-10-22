@@ -3,18 +3,23 @@
 ## Plugin frsl2filmstrip
 
 ## Prerequisites
-
-- Install Eclipse DSL Tools 2024-03
-- Install the repo `frsl` ([git@github.com:vnu-sme/frsl.git](https://github.com/vnu-sme/frsl))
-- Install Acceleo by the update site: <https://download.eclipse.org/releases/2024-03>
-- Clone this repo.
-- Import this repository as Eclipse projects:
-  - *File -> Open Project From File System -> Specify to folder 'frsl' -> Deselect the 'frsl' checkbox -> Select 'Search for nested projects' -> Finish*.
+- Install Eclipse DSL Tools 2024-03 (untested with latest versions).
+- Install the repository `frsl`: https://github.com/vnu-sme/frsl.
+- Install Acceleo by the update site: https://download.eclipse.org/releases/2024-03.
+  - *Help -> Install New Software...*
+  - Note: `frsl` requires UML2 Extender SDK from this update site, too.
+- Clone this repository.
+- Inside Eclipse, import this repository as Eclipse projects:
+  - *File -> Open Project From File System -> Specify to folder 'frsl' -> Select 'Search for nested projects' -> Finish*.
   - *File -> Open Project From File System -> Specify to folder 'frsl2filmstrip' -> Select 'Search for nested projects' -> Finish*.
+    - Note: The IDE may ask for installing OCL as the projects have "OCL Nature", but the projects have their OCL dependencies bundled.
 - In *Problem* section (in Eclipse):
   - If any project is missing *src-gen* (*xtend-gen*), add manually folder *src-gen* (*xtend-gen*) to that project.
-  - Fix the error 'An API baseline has not been set for the current workspace": (1) Click the menu: Windows\Preferences\Plug-in Development\API Baselines; (2) Update the option "Missing API baseline": Error -> Warning
-
+  - Fix the error 'An API baseline has not been set for the current workspace":
+    - (1) Click the menu: Windows\Preferences\Plug-in Development\API Baselines
+    - (2) Update the option "Missing API baseline": Error -> Warning
+  - Other issues: To be reported.
+  
 ## Note
 
 - JavaSE-21 is recommended.
