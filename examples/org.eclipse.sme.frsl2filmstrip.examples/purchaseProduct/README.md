@@ -23,7 +23,7 @@ You can use the provided files in this folder to evaluate this example.
 
 ![Filmstrip generation](images/genFilmstrip.png)
 
-- After the generation, you will see the two files in the `filmstrip-gen` folder (which are equivalent to the files in the `USE_purchaseProduct` folder).
+- After the generation, you will see the two files in the `filmstrip-gen` folder (you can also use the files provided in the `USE_purchaseProduct` folder, which serve the same purpose).
 
 ![Filmstrip generation (output)](images/filmstripGenOutput.png)
 
