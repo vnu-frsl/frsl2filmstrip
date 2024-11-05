@@ -6,6 +6,8 @@ This guide assumes you have already read the [README](../../../README.md) and ha
 
 You can use the provided files in this folder to evaluate this example.
 
+Note: A few minor edits must be done in the current version for this method to work as expected. Refer to our provided example files for more details.
+
 ## Evaluation
 
 ### Step 1. Defining an application model for use cases (Eclipse/FRSL)
