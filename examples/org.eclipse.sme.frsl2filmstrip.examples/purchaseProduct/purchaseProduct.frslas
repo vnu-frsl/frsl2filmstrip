@@ -190,21 +190,6 @@
             <ownedResult xsi:type="pivot:ParameterVariable" name="result" type="pivot:BooleanType &_0;#XEMMs"/>
           </ownedSpecification>
         </ownedPostconditions>
-        <ownedPreconditions xmi:id="cVugD" name="step6_sys_pre1">
-          <ownedSpecification xsi:type="pivot:ExpressionInOCL" type="pivot:BooleanType &_0;#XEMMs" body="orderQuantity &lt;= product.quantity">
-            <ownedBody xsi:type="pivot:OperationCallExp" name="&lt;=" type="pivot:BooleanType &_0;#XEMMs" referredOperation="&_0;#8brvY">
-              <ownedSource xsi:type="pivot:PropertyCallExp" name="orderQuantity" type="pivot:PrimitiveType &_0;#tYtCd" referredProperty="#RrhSV">
-                <ownedSource xsi:type="pivot:VariableExp" name="self" type="#AV3dc" isImplicit="true" referredVariable="#skvP4"/>
-              </ownedSource>
-              <ownedArguments xsi:type="pivot:PropertyCallExp" name="quantity" type="pivot:PrimitiveType &_0;#tYtCd" referredProperty="#TDm0N">
-                <ownedSource xsi:type="pivot:PropertyCallExp" name="product" type="#wlA4w" referredProperty="#HXM4i">
-                  <ownedSource xsi:type="pivot:VariableExp" name="self" type="#AV3dc" isImplicit="true" referredVariable="#skvP4"/>
-                </ownedSource>
-              </ownedArguments>
-            </ownedBody>
-            <ownedContext xsi:type="pivot:ParameterVariable" xmi:id="skvP4" name="self" type="#AV3dc"/>
-          </ownedSpecification>
-        </ownedPreconditions>
       </ownedOperations>
       <ownedProperties xmi:id="2iHdZ" name="customer" type="#fiYFI"/>
       <ownedProperties xmi:id="HXM4i" name="product" type="#wlA4w"/>
@@ -394,7 +379,7 @@
           <nextStep xsi:type="frsl:ActStep" name="step4_sys:step4" description="4. The system displays detailed information about the selected product and requests the customer to enter the quantity.">
             <nextStep xsi:type="frsl:ActStep" name="step5_act:step5" description="5. The customer enters the the desired quantity." isActorStep="true">
               <nextStep xsi:type="frsl:ActStep" name="step6_sys:step6" description="6. The system creates a new order, updates the product information and displays the purchase information to the customer">
-                <preSnapshot constraint="#cVugD">
+                <preSnapshot>
                   <object name="customer" type="#2iHdZ"/>
                   <object name="product" type="#HXM4i"/>
                   <object name="orderQuantity" type="#RrhSV"/>
