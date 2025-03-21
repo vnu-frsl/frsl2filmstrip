@@ -68,11 +68,12 @@ public class AcceleoGenerateFrsl2filmstripAction extends ActionDelegate implemen
 					try {
 						Iterator<IFile> filesIt = files.iterator();
 						while (filesIt.hasNext()) {
-							IFile model = (IFile)filesIt.next();
-							URI modelURI = URI.createPlatformResourceURI(model.getFullPath().toString(), true);
+							IFile model = (IFile)filesIt.next();							
+							URI modelURI = URI.createPlatformResourceURI(model.getFullPath().toString(), true);							
 							IContainer targetFolder = null;
-							try {
-								IContainer target = model.getProject().getFolder("filmstrip-gen");
+							try {								
+								//IContainer target = model.getProject().getFolder("filmstrip-gen");								
+								IContainer target = model.getProject().getFolder(model.getParent().getName() + "/filmstrip-gen");
 								targetFolder = target;
 								GenerateAll generator = new GenerateAll(modelURI, targetFolder, getArguments());
 								generator.doGenerate(monitor);

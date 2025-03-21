@@ -18,6 +18,7 @@
   - Fix the error 'An API baseline has not been set for the current workspace":
     - (1) Click the menu: Windows\Preferences\Plug-in Development\API Baselines
     - (2) Update the option "Missing API baseline": Error -> Warning
+  - Note the error with Acceleo when executing frsl2filmstrip, which may be due to conflicts between OCL plugins in Acceleo and FRSL/OclInEcore. Temporary workaround: When compiling (Project->Clean...), it should be done twice. 
   - Other issues: To be reported.
   
 ## Note
